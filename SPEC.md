@@ -73,8 +73,7 @@ authorship and prescribed silence for human-decided rulings; that is what lost t
 pending state and no human gate on *recording*. The human gate is on **force changes** —
 superseding, vacating, rejecting — which happen at a docket.
 
-**OPEN (the load-bearing one):** binding-on-write is clause 3 of entry 0001 and needs Nico's
-ruling. Everything else in this spec assumes it.
+Binding-on-write is clause 3 of entry `0001`, **ratified by Nico, 2026-08-29.**
 
 ## Vacating
 
@@ -94,3 +93,9 @@ worksheet — one row per decision needing a force change — and the dispositio
 entries with `decider: nico`.
 
 **OPEN:** the trigger thresholds.
+
+## Versioning
+
+**OPEN** — under discussion. Nothing here is decided: how the spec is versioned, what an entry
+declares about the spec it conforms to, and how the repo's artifacts (CLI, grid pack, templates)
+are tagged relative to it.

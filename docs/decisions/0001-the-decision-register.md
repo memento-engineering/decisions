@@ -15,8 +15,9 @@ vacated_by: null
 cites: []
 ---
 
-> **DRAFT — not ratified.** This entry is the constitutive decision of the pattern and is
-> deliberately the first exercise of it. Clause 3 is the open ruling.
+> **PARTIALLY RATIFIED.** Clause 3 (binding-on-write) — **ratified by Nico, 2026-08-29.** The
+> remaining clauses stand as recorded. A versioning clause is pending discussion; migration of the
+> six legacy registers is deliberately out of scope here (see `0002`, unwritten).
 
 ## Decision
 
@@ -31,7 +32,7 @@ cites: []
    after the fact.
 
 3. **A decision binds on write.** Force attaches when the entry is recorded, by anyone, in any
-   session. There is no `pending` state. *(This clause is the ruling this entry needs.)*
+   session. There is no `pending` state. *(Ratified by Nico, 2026-08-29.)*
 
 4. **The human gate is on force changes, not on recording.** Superseding, vacating, and rejecting
    happen at a **docket**, triggered by signal rather than calendar.
