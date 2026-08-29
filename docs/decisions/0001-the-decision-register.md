@@ -2,7 +2,7 @@
 id: 0001
 title: A decision register is a citation graph with force, recorded by anyone and ratified at a docket
 date: 2026-08-29
-decider: nico
+decider: agent+nico
 force: binding
 bead: null
 surfaces:
