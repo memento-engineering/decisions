@@ -70,3 +70,9 @@
 # Secret keys (stored in this file but prefer env vars to avoid git exposure):
 # - linear.api_key  → use LINEAR_API_KEY env var instead
 # - github.token    → use GITHUB_TOKEN env var instead
+
+# Orchestrated seat: proxied-server, because the station drives concurrent
+# agents from separate worktrees against this store. `decision` is the entry
+# type from docs/decisions/2026-08-30-entry-identity.md.
+issue_prefix: dec
+types.custom: decision
