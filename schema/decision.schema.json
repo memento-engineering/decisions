@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/memento-engineering/decisions/schema/decision.schema.json",
+  "title": "decisions profile — entry front matter (spec 1)",
+  "description": "MADR 4.0 front matter plus the `register` extension block. Validates front matter only; body structure is MADR's concern (see madrlint).",
+  "type": "object",
+  "required": ["status", "date", "register"],
+  "properties": {
+    "status": {
+      "description": "MADR status. This profile never uses `proposed` — entries are born accepted.",
+      "oneOf": [
+        { "enum": ["accepted", "deprecated", "rejected"] },
+        { "type": "string", "pattern": "^superseded by [a-z0-9]+(-[a-z0-9]+)*$" }
+      ]
+    },
+    "date": { "type": "string", "format": "date", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+    "decision-makers": { "type": "array", "items": { "type": "string" } },
+    "consulted": { "type": "array", "items": { "type": "string" } },
+    "informed": { "type": "array", "items": { "type": "string" } },
+    "register": {
+      "type": "object",
+      "required": ["spec", "slug", "surfaces"],
+      "additionalProperties": false,
+      "properties": {
+        "spec": { "type": "integer", "minimum": 1, "description": "Format version. Integer, never semver." },
+        "slug": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+          "maxLength": 60,
+          "description": "The identity. Unique per register; must match the filename after the date prefix."
+        },
+        "surfaces": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string" },
+          "description": "Globs or paths this decision governs. What an agent matches against before loading it."
+        },
+        "obsoletes": {
+          "type": "array", "items": { "$ref": "#/$defs/ref" },
+          "description": "AUTHORED. Entries this one replaces entirely."
+        },
+        "updates": {
+          "type": "array", "items": { "$ref": "#/$defs/ref" },
+          "description": "AUTHORED. Entries this one substantively amends; those remain in force."
+        },
+        "obsoleted-by": {
+          "oneOf": [{ "$ref": "#/$defs/ref" }, { "type": "null" }],
+          "description": "CACHED. Maintained by tooling from the graph; never hand-written."
+        },
+        "updated-by": {
+          "type": "array", "items": { "$ref": "#/$defs/ref" },
+          "description": "CACHED. Maintained by tooling from the graph; never hand-written."
+        },
+        "bead": {
+          "oneOf": [{ "type": "string" }, { "type": "null" }],
+          "description": "Optional. A minted `decision`-type bead id. Mint before citing; the file remains the source of truth."
+        },
+        "legacy-id": {
+          "oneOf": [{ "type": "string" }, { "type": "null" }],
+          "description": "Optional. The pre-migration identifier (e.g. `A47`), so existing citations keep resolving."
+        }
+      }
+    }
+  },
+  "$defs": {
+    "ref": {
+      "type": "string",
+      "pattern": "^([a-z0-9_.-]+#)?[a-z0-9]+(-[a-z0-9]+)*$",
+      "description": "A slug, or `<repo>#<slug>` for a cross-register reference."
+    }
+  }
+}
