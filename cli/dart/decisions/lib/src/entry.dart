@@ -18,6 +18,8 @@ class DecisionEntry {
     required this.surfaces,
     required this.obsoletes,
     required this.updates,
+    required this.bead,
+    required this.legacyId,
     required this.decisionMakers,
   });
 
@@ -45,10 +47,19 @@ class DecisionEntry {
   /// AUTHORED edges: entries this one amends, which remain in force.
   final List<String> updates;
 
+  /// Optional authored link to the decision-type bead.
+  final String? bead;
+
+  /// Optional authored identifier retained from a migrated legacy register.
+  final String? legacyId;
+
   /// MADR's RACI decision-makers.
   final List<String> decisionMakers;
 
-  /// True when the entry still carries force.
+  /// True when the cached status currently says `accepted`.
+  ///
+  /// This does not account for authored edges; use [DecisionGraph.isBinding]
+  /// for graph-derived force.
   bool get isBinding => status == 'accepted';
 }
 
@@ -75,20 +86,23 @@ List<DecisionEntry> readRegister(String directory) {
   if (!dir.existsSync()) {
     throw DecisionParseException(directory, 'no such register directory');
   }
-  final files = dir
-      .listSync()
-      .whereType<File>()
-      .where((f) => f.path.endsWith('.md'))
-      .toList()
-    ..sort((a, b) => a.path.compareTo(b.path));
+  final files =
+      dir
+          .listSync()
+          .whereType<File>()
+          .where((f) => f.path.endsWith('.md'))
+          .toList()
+        ..sort((a, b) => a.path.compareTo(b.path));
   return [for (final f in files) parseEntry(f.path)];
 }
 
 /// Parses one entry file.
 DecisionEntry parseEntry(String file) {
   final text = File(file).readAsStringSync();
-  final match = RegExp(r'^---\r?\n(.*?)\r?\n---\r?\n', dotAll: true)
-      .firstMatch(text);
+  final match = RegExp(
+    r'^---\r?\n(.*?)\r?\n---\r?\n',
+    dotAll: true,
+  ).firstMatch(text);
   if (match == null) {
     throw DecisionParseException(file, 'no YAML front matter');
   }
@@ -117,6 +131,8 @@ DecisionEntry parseEntry(String file) {
     surfaces: _stringList(register['surfaces']),
     obsoletes: _stringList(register['obsoletes']),
     updates: _stringList(register['updates']),
+    bead: _nullableString(file, register, 'bead'),
+    legacyId: _nullableString(file, register, 'legacy-id'),
     decisionMakers: _stringList(doc['decision-makers']),
   );
 }
@@ -125,6 +141,13 @@ String _string(String file, YamlMap map, String key) {
   final Object? value = map[key];
   if (value is String && value.isNotEmpty) return value;
   return throw DecisionParseException(file, 'missing or non-string `$key`');
+}
+
+String? _nullableString(String file, YamlMap map, String key) {
+  final Object? value = map[key];
+  if (value == null) return null;
+  if (value is String && value.isNotEmpty) return value;
+  throw DecisionParseException(file, 'non-string `$key`');
 }
 
 int _int(String file, YamlMap map, String key) {

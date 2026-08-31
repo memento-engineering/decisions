@@ -27,6 +27,11 @@ void main() {
       expect(entries.map((e) => e.status), isNot(contains('proposed')));
     });
 
+    test('optional authored identities default to null', () {
+      expect(entries.map((entry) => entry.bead), everyElement(isNull));
+      expect(entries.map((entry) => entry.legacyId), everyElement(isNull));
+    });
+
     test('every authored edge resolves within the register', () {
       final known = {for (final e in entries) e.slug};
       for (final entry in entries) {
@@ -42,8 +47,9 @@ void main() {
     });
 
     test('the constitutive entry is present and binding', () {
-      final root =
-          entries.singleWhere((e) => e.slug == 'the-decision-register');
+      final root = entries.singleWhere(
+        (e) => e.slug == 'the-decision-register',
+      );
       expect(root.isBinding, isTrue);
       expect(root.decisionMakers, contains('nico'));
     });
