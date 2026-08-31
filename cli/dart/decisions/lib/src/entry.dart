@@ -11,6 +11,7 @@ class DecisionEntry {
   /// Creates an entry over its parsed front matter.
   const DecisionEntry({
     required this.file,
+    required this.body,
     required this.status,
     required this.date,
     required this.spec,
@@ -25,6 +26,9 @@ class DecisionEntry {
 
   /// The file this entry was parsed from.
   final String file;
+
+  /// The authored MADR Markdown after the YAML front matter.
+  final String body;
 
   /// The MADR status. This profile never uses `proposed`.
   final String status;
@@ -106,6 +110,11 @@ DecisionEntry parseEntry(String file) {
   if (match == null) {
     throw DecisionParseException(file, 'no YAML front matter');
   }
+  final body = text.substring(match.end).trim();
+  if (body.isEmpty) {
+    throw DecisionParseException(file, 'empty Markdown body');
+  }
+
   final Object? doc = loadYaml(match.group(1)!);
   if (doc is! YamlMap) {
     throw DecisionParseException(file, 'front matter is not a mapping');
@@ -124,6 +133,7 @@ DecisionEntry parseEntry(String file) {
   }
   return DecisionEntry(
     file: file,
+    body: body,
     status: _string(file, doc, 'status'),
     date: _string(file, doc, 'date'),
     spec: _int(file, register, 'spec'),

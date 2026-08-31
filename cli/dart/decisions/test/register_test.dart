@@ -53,6 +53,22 @@ void main() {
       expect(root.isBinding, isTrue);
       expect(root.decisionMakers, contains('nico'));
     });
+
+    test('retains the authored Markdown body without front matter', () {
+      final root = entries.singleWhere(
+        (entry) => entry.slug == 'the-decision-register',
+      );
+
+      expect(
+        root.body,
+        startsWith(
+          '# A decision register is a citation graph with force, '
+          'recorded by anyone and ratified at a docket',
+        ),
+      );
+      expect(root.body, contains('## Decision Outcome'));
+      expect(root.body, isNot(startsWith('---')));
+    });
   });
 
   test('a file without front matter is rejected', () {

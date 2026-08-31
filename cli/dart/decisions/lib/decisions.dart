@@ -7,3 +7,4 @@ library;
 
 export 'src/entry.dart';
 export 'src/graph.dart';
+export 'src/render.dart';
