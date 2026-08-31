@@ -7,4 +7,6 @@ library;
 
 export 'src/entry.dart';
 export 'src/graph.dart';
+export 'src/index.dart';
+export 'src/index_command.dart';
 export 'src/render.dart';

@@ -51,6 +51,8 @@ void main() {
       expect(graph.entry('A1'), same(graph.entry('original')));
       expect(graph.entry('A1').bead, 'dec-original');
       expect(graph.entry('original').legacyId, 'A1');
+      expect(graph.findEntry('A1'), same(graph.entry('original')));
+      expect(graph.findEntry('missing'), isNull);
     });
 
     test('rejects unresolved local references loudly', () {

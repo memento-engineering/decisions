@@ -172,6 +172,9 @@ final class DecisionGraph {
     return result;
   }
 
+  /// Finds a local slug or legacy id, or returns null when it is absent.
+  DecisionEntry? findEntry(String reference) => _references[reference];
+
   /// Resolved edges authored by [reference], optionally restricted by [kind].
   List<DecisionEdge> outgoingFrom(String reference, {DecisionEdgeKind? kind}) {
     final source = entry(reference);
