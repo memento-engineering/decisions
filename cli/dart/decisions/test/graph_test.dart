@@ -36,6 +36,7 @@ void main() {
       expect(graph.isBinding('original'), isTrue);
       expect(graph.forceOf('amendment'), DecisionForce.superseded);
       expect(graph.isBinding('amendment'), isFalse);
+      expect(graph.edges, hasLength(2));
     });
 
     test('retains cross-register references as pending edges', () {

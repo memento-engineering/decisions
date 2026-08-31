@@ -9,7 +9,7 @@ register:
   slug: entry-identity
   surfaces:
     - "docs/decisions/*.md"
-    - "docs/decisions/views/*.md"
+    - "docs/decisions/views/**"
     - "schema/decision.schema.json"
   obsoletes: []
   updates: [the-decision-register]

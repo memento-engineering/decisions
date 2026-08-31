@@ -5,8 +5,10 @@
 /// build on top. See `SPEC.md` at the repository root.
 library;
 
+export 'src/command.dart';
 export 'src/entry.dart';
 export 'src/graph.dart';
 export 'src/index.dart';
 export 'src/index_command.dart';
+export 'src/lint.dart';
 export 'src/render.dart';
