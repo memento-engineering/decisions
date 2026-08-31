@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/memento-engineering/decisions/schema/decision-index.schema.json",
+  "title": "decisions index output (schema 1)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["spec", "decisions"],
+  "properties": {
+    "spec": { "const": 1 },
+    "decisions": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/decision" }
+    }
+  },
+  "$defs": {
+    "decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "originRegister",
+        "originPath",
+        "slug",
+        "status",
+        "surfaces",
+        "edges"
+      ],
+      "properties": {
+        "originRegister": {
+          "type": "string",
+          "pattern": "^[a-z0-9_.-]+$"
+        },
+        "originPath": { "type": "string", "minLength": 1 },
+        "slug": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+        },
+        "status": { "type": "string", "minLength": 1 },
+        "surfaces": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "edges": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/edge" }
+        }
+      }
+    },
+    "edge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "reference", "resolution"],
+      "properties": {
+        "kind": { "enum": ["obsoletes", "updates"] },
+        "reference": { "type": "string", "minLength": 1 },
+        "resolution": { "enum": ["resolved", "dangling"] },
+        "targetRegister": { "type": "string", "minLength": 1 },
+        "targetSlug": { "type": "string", "minLength": 1 }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "resolution": { "const": "resolved" } },
+            "required": ["resolution"]
+          },
+          "then": { "required": ["targetRegister", "targetSlug"] },
+          "else": {
+            "not": {
+              "anyOf": [
+                { "required": ["targetRegister"] },
+                { "required": ["targetSlug"] }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  }
+}
