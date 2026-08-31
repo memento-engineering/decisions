@@ -32,6 +32,21 @@ void main() {
       expect(entries.map((entry) => entry.legacyId), everyElement(isNull));
     });
 
+    test('parses cached force fields', () {
+      final root = entries.singleWhere(
+        (entry) => entry.slug == 'the-decision-register',
+      );
+      expect(root.cachedObsoletedBy, isNull);
+      expect(
+        root.cachedUpdatedBy,
+        unorderedEquals([
+          'madr-profile',
+          'entry-identity',
+          'spec-and-artifact-versioning',
+        ]),
+      );
+    });
+
     test('every authored edge resolves within the register', () {
       final known = {for (final e in entries) e.slug};
       for (final entry in entries) {
