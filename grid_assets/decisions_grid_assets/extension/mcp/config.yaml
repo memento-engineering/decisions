@@ -1,3 +1,8 @@
 name: decisions_grid_assets
 version: 1
+resources:
+  - id: decision-alignment
+    description: Grades a spec against the roster-wide union of decisions governing its touched surfaces.
+    path: station_overlay/.claude/rubrics/decision-alignment.md
+    visibility: public
 skills: []
