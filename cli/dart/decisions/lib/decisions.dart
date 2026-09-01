@@ -10,5 +10,6 @@ export 'src/entry.dart';
 export 'src/graph.dart';
 export 'src/index.dart';
 export 'src/index_command.dart';
+export 'src/legacy.dart';
 export 'src/lint.dart';
 export 'src/render.dart';
