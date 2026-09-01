@@ -45,6 +45,8 @@ final class FakeLegacyRegisterConverter implements LegacyRegisterConverter {
     this.human = human;
     this.outputDirectory = outputDirectory;
     return LegacyConversionResult(['docs/decisions/converted.md']);
+  }
+}
 
 final class FakeDecisionMutator implements DecisionMutator {
   final calls = <String>[];
@@ -217,6 +219,7 @@ void main() {
       'docs/adr/ADR-0001-foundations.md',
     );
     expect(output.toString(), 'converted 1 decision entries\n');
+  });
 
   test('force commands delegate exact arguments and return zero', () async {
     final fake = FakeDecisionMutator();
