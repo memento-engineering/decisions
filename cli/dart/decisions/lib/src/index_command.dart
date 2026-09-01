@@ -6,10 +6,19 @@ import 'package:args/command_runner.dart';
 
 import 'index.dart';
 
-/// Emits a structured decision index over explicit register directories.
+/// Resolves decision-register directories at command run time.
+typedef RegisterPathResolver = Iterable<String> Function();
+
+/// Emits a structured decision index over explicit or resolved registers.
 final class IndexCommand extends Command<int> {
   /// Creates the command, writing JSON to [output] or standard output.
-  IndexCommand({StringSink? output}) : _output = output ?? stdout {
+  ///
+  /// Explicit positional paths win. When argv carries none, [registerPaths]
+  /// is invoked at run time; omitting it preserves the tier-1 zero-path
+  /// refusal.
+  IndexCommand({StringSink? output, RegisterPathResolver? registerPaths})
+    : _output = output ?? stdout,
+      _registerPaths = registerPaths {
     argParser.addOption(
       'surface',
       abbr: 's',
@@ -19,18 +28,22 @@ final class IndexCommand extends Command<int> {
   }
 
   final StringSink _output;
+  final RegisterPathResolver? _registerPaths;
 
   @override
   String get name => 'index';
 
   @override
   String get description =>
-      'Index one or more explicit decision-register directories as JSON.';
+      'Index one or more decision-register directories as JSON.';
 
   @override
   FutureOr<int> run() {
     final results = argResults!;
-    final registerPaths = results.rest;
+    final explicitPaths = results.rest;
+    final registerPaths = explicitPaths.isNotEmpty
+        ? explicitPaths
+        : _registerPaths?.call().toList(growable: false) ?? const <String>[];
     if (registerPaths.isEmpty) {
       usageException('at least one register directory is required');
     }
