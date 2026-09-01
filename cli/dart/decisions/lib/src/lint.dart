@@ -328,13 +328,14 @@ final class DecisionLintService implements DecisionLinter {
         );
       } else if (obsoleting.isEmpty &&
           updating.isNotEmpty &&
-          entry.status != 'accepted') {
+          entry.status != 'accepted' &&
+          entry.status != 'deprecated') {
         diagnostics.add(
           _diagnostic(
             entry,
             repoRoot,
             DecisionLintRules.forceStatus,
-            'an updated target must remain accepted',
+            'an updated target must remain accepted unless explicitly vacated',
           ),
         );
       }
