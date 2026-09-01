@@ -1,5 +1,8 @@
+import 'dart:convert';
 import 'dart:io';
 
+import 'package:args/command_runner.dart';
+import 'package:decisions_grid_assets/decisions_grid_assets.dart';
 import 'package:grid_assets/grid_assets.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
@@ -16,6 +19,15 @@ final Directory _canonicalSkills = Directory(p.join(_repoRoot.path, 'skills'));
 final Directory _generatedSkills = Directory(
   p.join(_extensionRoot.path, 'station_overlay', '.claude', 'skills'),
 );
+final Directory _canonicalRubrics = Directory(
+  p.join(_repoRoot.path, 'rubrics'),
+);
+final Directory _generatedRubrics = Directory(
+  p.join(_extensionRoot.path, 'station_overlay', '.claude', 'rubrics'),
+);
+final Directory _decisionAlignmentFixtures = Directory(
+  p.join(_packageRoot.path, 'test', 'fixtures', 'decision_alignment'),
+);
 
 List<String> _realRelativeFiles(Directory root) {
   if (!root.existsSync()) return const <String>[];
@@ -30,7 +42,7 @@ List<String> _realRelativeFiles(Directory root) {
   return files;
 }
 
-void _expectGeneratedSkillsMatch({
+void _expectGeneratedTreeMatches({
   required Directory canonical,
   required Directory generated,
 }) {
@@ -60,6 +72,42 @@ List<Map<Object?, Object?>> _manifestSkills(YamlMap manifest) {
     for (final item in value as YamlList)
       Map<Object?, Object?>.from(item as YamlMap),
   ];
+}
+
+List<Map<Object?, Object?>> _manifestResources(YamlMap manifest) {
+  final value = manifest['resources'];
+  expect(value, isA<YamlList>());
+  return [
+    for (final item in value as YamlList)
+      Map<Object?, Object?>.from(item as YamlMap),
+  ];
+}
+
+File _fixtureSpec(String name) =>
+    File(p.join(_decisionAlignmentFixtures.path, 'specs', name));
+
+String _fixtureSurface(String spec) {
+  final match = RegExp(r'^- `([^`]+)`', multiLine: true).firstMatch(spec);
+  if (match == null) fail('fixture spec has no backticked Touches path');
+  return match.group(1)!;
+}
+
+Future<List<Map<String, dynamic>>> _governingDecisions(String surface) async {
+  final output = StringBuffer();
+  final runner = CommandRunner<int>('station', 'fixture')
+    ..addCommand(
+      buildDecisionsCommand(
+        mountedSubstationRoots: () => [
+          p.join(_decisionAlignmentFixtures.path, 'registers', 'source_repo'),
+          p.join(_decisionAlignmentFixtures.path, 'registers', 'policy_repo'),
+        ],
+        output: output,
+      ),
+    );
+
+  expect(await runner.run(['decisions', 'index', '--surface', surface]), 0);
+  final payload = jsonDecode(output.toString()) as Map<String, dynamic>;
+  return (payload['decisions'] as List<dynamic>).cast<Map<String, dynamic>>();
 }
 
 void main() {
@@ -116,7 +164,7 @@ void main() {
         reason: 'placeholder-only canonical tree vends no skill content',
       );
     }
-    _expectGeneratedSkillsMatch(
+    _expectGeneratedTreeMatches(
       canonical: _canonicalSkills,
       generated: _generatedSkills,
     );
@@ -135,7 +183,7 @@ void main() {
     source.copySync(target.path);
 
     expect(
-      () => _expectGeneratedSkillsMatch(
+      () => _expectGeneratedTreeMatches(
         canonical: canonical,
         generated: generated,
       ),
@@ -144,7 +192,7 @@ void main() {
 
     target.writeAsBytesSync([0, 1, 2, 254]);
     expect(
-      () => _expectGeneratedSkillsMatch(
+      () => _expectGeneratedTreeMatches(
         canonical: canonical,
         generated: generated,
       ),
@@ -184,5 +232,98 @@ void main() {
     expect(installed, contains('generated from grid_assets@fixture-ref'));
     expect(installed, contains('Fixture body.'));
     expect(source.readAsStringSync(), isNot(contains('generated from')));
+  });
+
+  test('canonical decision-alignment rubric is vended byte for byte', () {
+    final resources = _manifestResources(_manifest());
+    expect(resources, hasLength(1));
+    expect(resources.single, {
+      'id': 'decision-alignment',
+      'description':
+          'Grades a spec against the roster-wide union of decisions '
+          'governing its touched surfaces.',
+      'path': 'station_overlay/.claude/rubrics/decision-alignment.md',
+      'visibility': 'public',
+    });
+
+    _expectGeneratedTreeMatches(
+      canonical: _canonicalRubrics,
+      generated: _generatedRubrics,
+    );
+    final canonical = File(
+      p.join(_canonicalRubrics.path, 'decision-alignment.md'),
+    );
+    final generated = File(
+      p.join(_generatedRubrics.path, 'decision-alignment.md'),
+    );
+    expect(generated.readAsBytesSync(), canonical.readAsBytesSync());
+  });
+
+  test('decision-alignment lookup and bands follow the register contract', () {
+    final rubric = File(
+      p.join(_generatedRubrics.path, 'decision-alignment.md'),
+    ).readAsStringSync();
+
+    expect(
+      rubric,
+      contains('<station> decisions index --surface <repo>/<path>'),
+    );
+    expect(rubric, contains('with no explicit register-directory arguments'));
+    expect(rubric, contains('docs/decisions/'));
+    expect(rubric, isNot(contains('docs/adr/')));
+    expect(
+      rubric,
+      contains('Every recorded decision binds. There is no pending state.'),
+    );
+    for (final band in ['**A**', '**B**', '**C**', '**D**', '**F**']) {
+      expect(rubric, contains(band), reason: band);
+    }
+    expect(rubric, contains('load-bearing'));
+    expect(rubric, contains('structural contradiction'));
+  });
+
+  test(
+    'sibling-register contradiction fixture is F with offending slug',
+    () async {
+      final spec = _fixtureSpec('contradicts_sibling.md').readAsStringSync();
+      final decisions = await _governingDecisions(_fixtureSurface(spec));
+
+      expect(spec, contains('Directory.watch'));
+      expect(decisions, hasLength(1));
+      expect(decisions.single['originRegister'], 'policy_repo');
+      expect(decisions.single['slug'], 'no-file-watching');
+      final policy = File(
+        p.join(
+          _decisionAlignmentFixtures.path,
+          'registers',
+          'policy_repo',
+          'docs',
+          'decisions',
+          '2026-01-01-no-file-watching.md',
+        ),
+      ).readAsStringSync();
+      expect(policy, contains('Do not introduce file-system watchers'));
+
+      final rubric = File(
+        p.join(_generatedRubrics.path, 'decision-alignment.md'),
+      ).readAsStringSync();
+      expect(
+        rubric,
+        contains('grade **F** and cite `policy_repo#no-file-watching`'),
+      );
+    },
+  );
+
+  test('ungoverned surface fixture has no citation penalty', () async {
+    final spec = _fixtureSpec('ungoverned_surface.md').readAsStringSync();
+    final decisions = await _governingDecisions(_fixtureSurface(spec));
+
+    expect(decisions, isEmpty);
+    expect(spec, contains('No decision applies'));
+    final rubric = File(
+      p.join(_generatedRubrics.path, 'decision-alignment.md'),
+    ).readAsStringSync();
+    expect(rubric, contains('must not be penalised for citing no decision'));
+    expect(rubric, contains('no-precedent form of grade **A**'));
   });
 }
