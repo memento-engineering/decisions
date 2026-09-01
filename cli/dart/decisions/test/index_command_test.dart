@@ -51,4 +51,28 @@ void main() {
       ),
     );
   });
+
+  test('uses injected register paths lazily when no explicit paths', () async {
+    var resolved = const <String>[];
+    var calls = 0;
+    final output = StringBuffer();
+    final runner = CommandRunner<int>('decisions', 'Decision register tools')
+      ..addCommand(
+        IndexCommand(
+          output: output,
+          registerPaths: () {
+            calls++;
+            return resolved;
+          },
+        ),
+      );
+
+    expect(calls, 0);
+    resolved = [_sourceRegister, _otherRegister];
+
+    expect(await runner.run(['index']), 0);
+    expect(calls, 1);
+    final decoded = jsonDecode(output.toString()) as Map<String, dynamic>;
+    expect(decoded['decisions'], hasLength(2));
+  });
 }
