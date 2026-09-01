@@ -5,4 +5,7 @@ resources:
     description: Grades a spec against the roster-wide union of decisions governing its touched surfaces.
     path: station_overlay/.claude/rubrics/decision-alignment.md
     visibility: public
-skills: []
+skills:
+  - id: decide
+    audience: agent
+    path: station_overlay/.claude/skills/decide/SKILL.md
