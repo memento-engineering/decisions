@@ -5,6 +5,7 @@ import 'package:args/command_runner.dart';
 
 import 'legacy.dart';
 import 'lint.dart';
+import 'mutation.dart';
 
 /// Composable `decisions` command group.
 final class DecisionsCommand extends Command<int> {
@@ -12,16 +13,45 @@ final class DecisionsCommand extends Command<int> {
   DecisionsCommand({
     DecisionLinter? linter,
     LegacyRegisterConverter? legacyConverter,
+    DecisionMutator? mutator,
     StringSink? output,
   }) {
-    final sink = output ?? stdout;
-    addSubcommand(
-      _LintCommand(linter: linter ?? const DecisionLintService(), output: sink),
-    );
+    final resolvedLinter = linter ?? const DecisionLintService();
+    final resolvedMutator =
+        mutator ?? DecisionMutationService(linter: resolvedLinter);
+    final resolvedOutput = output ?? stdout;
+    addSubcommand(_LintCommand(linter: resolvedLinter, output: resolvedOutput));
     addSubcommand(
       _MigrateLegacyCommand(
         converter: legacyConverter ?? const LegacyRegisterConversionService(),
-        output: sink,
+        output: resolvedOutput,
+      ),
+    );
+    addSubcommand(
+      _MutationCommand(
+        commandName: 'obsolete',
+        commandDescription: 'Mark a decision as entirely replaced.',
+        successorOption: 'by',
+        mutator: resolvedMutator.obsolete,
+        output: resolvedOutput,
+      ),
+    );
+    addSubcommand(
+      _MutationCommand(
+        commandName: 'update',
+        commandDescription: 'Record an amendment to an accepted decision.',
+        successorOption: 'by',
+        mutator: resolvedMutator.update,
+        output: resolvedOutput,
+      ),
+    );
+    addSubcommand(
+      _MutationCommand(
+        commandName: 'vacate',
+        commandDescription: 'Withdraw a decision after recording a successor.',
+        successorOption: 'successor',
+        mutator: resolvedMutator.vacate,
+        output: resolvedOutput,
       ),
     );
   }
@@ -152,5 +182,84 @@ final class _MigrateLegacyCommand extends Command<int> {
       usageException('--ratified must use the exact YYYY-MM-DD=path form');
     }
     return LegacyRatifiedAdr(file: match.group(2)!, date: match.group(1)!);
+  }
+}
+
+typedef _RunMutation =
+    void Function({
+      required String registerPath,
+      required String repoRoot,
+      required String target,
+      required String successor,
+    });
+
+final class _MutationCommand extends Command<int> {
+  _MutationCommand({
+    required String commandName,
+    required String commandDescription,
+    required String successorOption,
+    required _RunMutation mutator,
+    required StringSink output,
+  }) : _commandName = commandName,
+       _commandDescription = commandDescription,
+       _successorOption = successorOption,
+       _mutator = mutator,
+       _output = output {
+    argParser
+      ..addOption(
+        successorOption,
+        valueHelp: 'slug',
+        help: 'The already-recorded successor decision slug.',
+      )
+      ..addOption(
+        'register',
+        defaultsTo: 'docs/decisions',
+        help: 'Decision register containing both entries.',
+      )
+      ..addOption(
+        'repo-root',
+        defaultsTo: '.',
+        help: 'Repository root used for candidate linting.',
+      );
+  }
+
+  final String _commandName;
+  final String _commandDescription;
+  final String _successorOption;
+  final _RunMutation _mutator;
+  final StringSink _output;
+
+  @override
+  String get name => _commandName;
+
+  @override
+  String get description => _commandDescription;
+
+  @override
+  int run() {
+    final positional = argResults!.rest;
+    if (positional.length != 1) {
+      _output.writeln('error: expected exactly one target slug');
+      return 1;
+    }
+    final successor = argResults!.option(_successorOption);
+    if (successor == null || successor.isEmpty) {
+      _output.writeln('error: --$_successorOption requires a successor slug');
+      return 1;
+    }
+
+    try {
+      _mutator(
+        registerPath: argResults!.option('register')!,
+        repoRoot: argResults!.option('repo-root')!,
+        target: positional.single,
+        successor: successor,
+      );
+      _output.writeln('$name ${positional.single}: clean');
+      return 0;
+    } on DecisionMutationException catch (error) {
+      _output.writeln('error: ${error.message}');
+      return 1;
+    }
   }
 }

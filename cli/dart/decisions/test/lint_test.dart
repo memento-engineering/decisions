@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:decisions/decisions.dart';
+import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 const _repoRoot = '../../..';
@@ -70,4 +73,117 @@ void main() {
       }
     },
   );
+
+  test('deprecated updated target is lint-clean', () {
+    final sandbox = Directory.systemTemp.createTempSync(
+      'decision-lint-force-',
+    );
+    try {
+      final register = Directory(p.join(sandbox.path, 'docs', 'decisions'))
+        ..createSync(recursive: true);
+      _writeUpdatedEntry(
+        register,
+        day: 1,
+        slug: 'target',
+        status: 'deprecated',
+        updatedBy: const ['amendment'],
+      );
+      _writeUpdatedEntry(
+        register,
+        day: 2,
+        slug: 'amendment',
+        updates: const ['target'],
+      );
+
+      final result = service.lint(
+        registerPath: register.path,
+        repoRoot: '.',
+      );
+
+      expect(result.isClean, isTrue, reason: '${result.toJson()}');
+      expect(result.diagnostics, isEmpty);
+    } finally {
+      if (sandbox.existsSync()) sandbox.deleteSync(recursive: true);
+    }
+  });
+
+  test('updated target rejects every other non-accepted status', () {
+    for (final status in <String>[
+      'rejected',
+      'proposed',
+      'superseded by stale-rule',
+    ]) {
+      final sandbox = Directory.systemTemp.createTempSync(
+        'decision-lint-force-',
+      );
+      try {
+        final register = Directory(p.join(sandbox.path, 'docs', 'decisions'))
+          ..createSync(recursive: true);
+        _writeUpdatedEntry(
+          register,
+          day: 1,
+          slug: 'target',
+          status: status,
+          updatedBy: const ['amendment'],
+        );
+        _writeUpdatedEntry(
+          register,
+          day: 2,
+          slug: 'amendment',
+          updates: const ['target'],
+        );
+
+        final result = service.lint(
+          registerPath: register.path,
+          repoRoot: '.',
+        );
+        final targetRules = result.diagnostics
+            .where(
+              (diagnostic) =>
+                  diagnostic.file.endsWith('2026-01-01-target.md'),
+            )
+            .map((diagnostic) => diagnostic.ruleId);
+
+        expect(
+          targetRules,
+          contains(DecisionLintRules.forceStatus),
+          reason: '$status: ${result.toJson()}',
+        );
+      } finally {
+        if (sandbox.existsSync()) sandbox.deleteSync(recursive: true);
+      }
+    }
+  });
+}
+
+File _writeUpdatedEntry(
+  Directory register, {
+  required int day,
+  required String slug,
+  String status = 'accepted',
+  List<String> updates = const [],
+  List<String> updatedBy = const [],
+}) {
+  final date = '2026-01-${day.toString().padLeft(2, '0')}';
+  final file = File(p.join(register.path, '$date-$slug.md'));
+  file.writeAsStringSync('''
+---
+status: $status
+date: $date
+decision-makers: [fixture]
+register:
+  spec: 1
+  slug: $slug
+  surfaces: ["test/**"]
+  obsoletes: []
+  updates: [${updates.join(', ')}]
+  obsoleted-by: null
+  updated-by: [${updatedBy.join(', ')}]
+  bead: null
+  legacy-id: null
+---
+
+# $slug
+''');
+  return file;
 }

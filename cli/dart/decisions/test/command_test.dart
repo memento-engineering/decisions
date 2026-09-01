@@ -48,6 +48,40 @@ final class FakeLegacyRegisterConverter implements LegacyRegisterConverter {
   }
 }
 
+final class FakeDecisionMutator implements DecisionMutator {
+  final calls = <String>[];
+
+  @override
+  void obsolete({
+    required String registerPath,
+    required String repoRoot,
+    required String target,
+    required String successor,
+  }) {
+    calls.add('obsolete|$registerPath|$repoRoot|$target|$successor');
+  }
+
+  @override
+  void update({
+    required String registerPath,
+    required String repoRoot,
+    required String target,
+    required String successor,
+  }) {
+    calls.add('update|$registerPath|$repoRoot|$target|$successor');
+  }
+
+  @override
+  void vacate({
+    required String registerPath,
+    required String repoRoot,
+    required String target,
+    required String successor,
+  }) {
+    calls.add('vacate|$registerPath|$repoRoot|$target|$successor');
+  }
+}
+
 void main() {
   test('json output validates against its schema', () async {
     final output = StringBuffer();
@@ -185,5 +219,59 @@ void main() {
       'docs/adr/ADR-0001-foundations.md',
     );
     expect(output.toString(), 'converted 1 decision entries\n');
+  });
+
+  test('force commands delegate exact arguments and return zero', () async {
+    final fake = FakeDecisionMutator();
+    final runner = CommandRunner<int>('station', 'fixture')
+      ..addCommand(DecisionsCommand(mutator: fake, output: StringBuffer()));
+
+    expect(
+      await runner.run(<String>[
+        'decisions',
+        'obsolete',
+        'old-rule',
+        '--by',
+        'replacement',
+        '--register',
+        'register-path',
+        '--repo-root',
+        'repo-path',
+      ]),
+      0,
+    );
+    expect(
+      await runner.run(<String>[
+        'decisions',
+        'update',
+        'base-rule',
+        '--by',
+        'amendment',
+        '--register',
+        'register-path',
+        '--repo-root',
+        'repo-path',
+      ]),
+      0,
+    );
+    expect(
+      await runner.run(<String>[
+        'decisions',
+        'vacate',
+        'withdrawn-rule',
+        '--successor',
+        'no-rule-governs',
+        '--register',
+        'register-path',
+        '--repo-root',
+        'repo-path',
+      ]),
+      0,
+    );
+    expect(fake.calls, [
+      'obsolete|register-path|repo-path|old-rule|replacement',
+      'update|register-path|repo-path|base-rule|amendment',
+      'vacate|register-path|repo-path|withdrawn-rule|no-rule-governs',
+    ]);
   });
 }
