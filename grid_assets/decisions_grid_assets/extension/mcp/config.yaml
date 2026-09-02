@@ -9,3 +9,6 @@ skills:
   - id: decide
     audience: agent
     path: station_overlay/.claude/skills/decide/SKILL.md
+  - id: ratify
+    audience: operator
+    path: station_overlay/.claude/skills/ratify/SKILL.md
