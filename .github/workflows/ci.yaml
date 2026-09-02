@@ -5,6 +5,7 @@ name: ci
 # through git tags, which means a red package reaches consumers the moment a
 # tag is pushed — this is the gate that stops that.
 on:
+  merge_group:
   pull_request:
   push:
     branches: [main]
