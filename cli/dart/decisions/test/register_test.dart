@@ -28,7 +28,12 @@ void main() {
     });
 
     test('optional authored identities default to null', () {
-      expect(entries.map((entry) => entry.bead), everyElement(isNull));
+      // docket-triggers is the one self-hosted entry minted from a bead
+      // (dec-iut); every other identity stays null.
+      final beads = {for (final entry in entries) entry.slug: entry.bead};
+      expect(beads['docket-triggers'], 'dec-iut');
+      beads.remove('docket-triggers');
+      expect(beads.values, everyElement(isNull));
       expect(entries.map((entry) => entry.legacyId), everyElement(isNull));
     });
 
@@ -43,6 +48,7 @@ void main() {
           'madr-profile',
           'entry-identity',
           'spec-and-artifact-versioning',
+          'docket-triggers',
         ]),
       );
     });
