@@ -29,7 +29,6 @@ void main() {
 
     expect(views.map((view) => view.fileName), [
       '0001-the-decision-register.md',
-      '0002-legacy-register-migration.md',
     ]);
     final combined = views.map((view) => view.content).join('\n');
     final graph = DecisionGraph(readRegister(_selfHostedRegister));
@@ -37,7 +36,7 @@ void main() {
         .where((entry) => graph.isBinding(entry.slug))
         .toList();
 
-    expect(binding, hasLength(6));
+    expect(binding, hasLength(5));
     for (final entry in binding) {
       expect(combined, contains('<a id="${entry.slug}"></a>'));
     }
@@ -92,7 +91,7 @@ void main() {
     );
     final views = renderViews(graph: graph, template: template);
 
-    expect(views, hasLength(2));
+    expect(views, hasLength(1));
     for (final view in views) {
       expect(view.content, startsWith('<!-- layout sentinel -->'));
     }
