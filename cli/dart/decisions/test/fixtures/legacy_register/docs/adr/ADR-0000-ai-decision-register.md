@@ -16,6 +16,10 @@
 **Why:** A parser cannot recover the intended graph safely. Unicode survives: café.
 **Status:** pending.
 
+## RATIFIED — SPLIT ON EVERY HEADING (2026-08-20, Nico Spencer)
+
+Nico's ratification. A non-amendment section is its own entry, never the tail of the amendment above it.
+
 ## A32 (2026-08-29) — Keep the final amendment byte-for-byte
 
 **Decision:** Preserve this final body without manufacturing a trailing section.

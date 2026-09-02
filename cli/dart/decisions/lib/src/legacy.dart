@@ -37,6 +37,32 @@ class LegacyConversionException implements Exception {
   String toString() => 'LegacyConversionException: $message';
 }
 
+/// Reads the verbatim `[start, end)` span of a register for one heading.
+typedef LegacyBodyReader = String Function(String text, int start, int end);
+
+/// Thrown when a converted body would not be byte-identical to its source span.
+///
+/// The conversion contract (`decisions#legacy-register-migration`) is that a
+/// body is copied verbatim. A body that fails that check is refused by name
+/// rather than emitted, because a wrong output lints clean.
+final class LegacyRegisterRefused extends LegacyConversionException {
+  /// Refuses [file] because the body under [heading] is not verbatim.
+  LegacyRegisterRefused({required this.file, required this.heading})
+    : super(
+        'refusing "$file": the body under heading "$heading" is not '
+        'byte-identical to its heading-to-next-heading span',
+      );
+
+  /// The legacy register that was refused.
+  final String file;
+
+  /// The exact heading line whose body failed the byte-identity check.
+  final String heading;
+
+  @override
+  String toString() => 'LegacyRegisterRefused: $message';
+}
+
 /// UI-drivable contract for converting one legacy register.
 abstract interface class LegacyRegisterConverter {
   /// Converts [registerFile] and explicit [ratifiedAdrs] into [outputDirectory].
@@ -52,18 +78,26 @@ abstract interface class LegacyRegisterConverter {
 /// Mechanical Option-C conversion with verbatim bodies and empty edges.
 final class LegacyRegisterConversionService implements LegacyRegisterConverter {
   /// Creates the stateless conversion service.
-  const LegacyRegisterConversionService();
+  ///
+  /// [readBody] is the single injected seam. Production always takes the
+  /// default verbatim reader; a test passes a non-verbatim Fake so the
+  /// byte-identity refusal in `_readSections` has a reachable failure path.
+  const LegacyRegisterConversionService({
+    LegacyBodyReader readBody = _verbatimBody,
+  }) : _readBody = readBody;
+
+  final LegacyBodyReader _readBody;
 
   static final _amendmentHeading = RegExp(
-    r'^## (A[1-9][0-9]*) \((\d{4}-\d{2}-\d{2})\) — ([^\r\n]+)\r?$',
-    multiLine: true,
+    r'^## (A[1-9][0-9]*) \((\d{4}-\d{2}-\d{2})\) — ([^\r\n]+)$',
   );
-  static final _amendmentCandidate = RegExp(
-    r'^## A[0-9]+[^\r\n]*\r?$',
-    multiLine: true,
-  );
+  static final _amendmentCandidate = RegExp(r'^## A[0-9]+');
+  static final _headingDate = RegExp(r'\((\d{4}-\d{2}-\d{2})[^)]*\)');
   static final _ratifiedFile = RegExp(r'^(?:ADR-)?([0-9]{4})-(.+)\.md$');
   static final _date = RegExp(r'^\d{4}-\d{2}-\d{2}$');
+
+  static String _verbatimBody(String text, int start, int end) =>
+      text.substring(start, end);
 
   @override
   LegacyConversionResult convert({
@@ -82,16 +116,16 @@ final class LegacyRegisterConversionService implements LegacyRegisterConverter {
     );
 
     final sources = <_LegacySource>[
-      ..._readAmendments(registerFile),
+      ..._readSections(registerFile, human: human),
       for (final ratified in ratifiedList)
         _readRatified(ratified, human: human),
     ];
     final legacyIds = <String>{};
     for (final source in sources) {
-      if (!legacyIds.add(source.legacyId)) {
-        throw LegacyConversionException(
-          'duplicate legacy id "${source.legacyId}"',
-        );
+      final legacyId = source.legacyId;
+      if (legacyId == null) continue;
+      if (!legacyIds.add(legacyId)) {
+        throw LegacyConversionException('duplicate legacy id "$legacyId"');
       }
     }
 
@@ -149,35 +183,80 @@ final class LegacyRegisterConversionService implements LegacyRegisterConverter {
     }
   }
 
-  static List<_LegacySource> _readAmendments(String file) {
-    final text = _readText(file);
-    final matches = _amendmentHeading.allMatches(text).toList(growable: false);
-    final candidates = _amendmentCandidate
-        .allMatches(text)
-        .toList(growable: false);
-    if (matches.isEmpty) {
-      throw LegacyConversionException(
-        'legacy register "$file" contains no amendment headings',
-      );
+  static List<_Heading> _headings(String text) {
+    final result = <_Heading>[];
+    var fenced = false;
+    var offset = 0;
+    while (true) {
+      final newline = text.indexOf('\n', offset);
+      final end = newline == -1 ? text.length : newline;
+      var line = text.substring(offset, end);
+      if (line.endsWith('\r')) line = line.substring(0, line.length - 1);
+      if (line.startsWith('```') || line.startsWith('~~~')) {
+        fenced = !fenced;
+      } else if (!fenced && line.startsWith('## ')) {
+        result.add(
+          _Heading(start: offset, line: line, text: line.substring(3)),
+        );
+      }
+      if (newline == -1) break;
+      offset = newline + 1;
     }
-    final exactOffsets = matches.map((match) => match.start).toSet();
-    final malformed = candidates.where(
-      (candidate) => !exactOffsets.contains(candidate.start),
-    );
-    if (malformed.isNotEmpty) {
-      throw LegacyConversionException(
-        'malformed amendment heading in "$file" at byte-like offset '
-        '${malformed.first.start}',
-      );
-    }
+    return List<_Heading>.unmodifiable(result);
+  }
 
+  List<_LegacySource> _readSections(String file, {required String human}) {
+    final text = _readText(file);
+    final headings = _headings(text);
     final ids = <String>{};
     final result = <_LegacySource>[];
-    for (var index = 0; index < matches.length; index++) {
-      final match = matches[index];
-      final legacyId = match.group(1)!;
-      final date = match.group(2)!;
-      final title = match.group(3)!;
+    var previousDate = '';
+    for (var index = 0; index < headings.length; index++) {
+      final heading = headings[index];
+      final end = index + 1 == headings.length
+          ? text.length
+          : headings[index + 1].start;
+      final body = _readBody(text, heading.start, end);
+      if (body != text.substring(heading.start, end)) {
+        throw LegacyRegisterRefused(file: file, heading: heading.line);
+      }
+      final amendment = _amendmentHeading.firstMatch(heading.line);
+      if (amendment == null) {
+        if (_amendmentCandidate.hasMatch(heading.line)) {
+          throw LegacyConversionException(
+            'malformed amendment heading in "$file": "${heading.line}"',
+          );
+        }
+        final date =
+            _headingDate.firstMatch(heading.text)?.group(1) ?? previousDate;
+        if (date.isEmpty) {
+          throw LegacyConversionException(
+            'section heading "${heading.line}" in "$file" carries no '
+            '(YYYY-MM-DD ...) parenthetical and follows no dated section',
+          );
+        }
+        _requireDate(date, source: '$file ${heading.line}');
+        final slug = _slug('', heading.text.replaceFirst(_headingDate, ' '));
+        if (slug.isEmpty) {
+          throw LegacyConversionException(
+            'section heading "${heading.line}" in "$file" yields an empty slug',
+          );
+        }
+        result.add(
+          _LegacySource(
+            date: date,
+            slug: slug,
+            legacyId: null,
+            decisionMaker: _namesHuman(heading.text, human) ? human : 'agent',
+            body: body,
+          ),
+        );
+        previousDate = date;
+        continue;
+      }
+      final legacyId = amendment.group(1)!;
+      final date = amendment.group(2)!;
+      final title = amendment.group(3)!;
       if (!ids.add(legacyId)) {
         throw LegacyConversionException(
           'duplicate amendment id "$legacyId" in "$file"',
@@ -190,17 +269,23 @@ final class LegacyRegisterConversionService implements LegacyRegisterConverter {
           slug: _slug(legacyId.toLowerCase(), title),
           legacyId: legacyId,
           decisionMaker: 'agent',
-          body: text.substring(
-            match.start,
-            index + 1 == matches.length
-                ? text.length
-                : matches[index + 1].start,
-          ),
+          body: body,
         ),
+      );
+      previousDate = date;
+    }
+    if (ids.isEmpty) {
+      throw LegacyConversionException(
+        'legacy register "$file" contains no amendment headings',
       );
     }
     return List<_LegacySource>.unmodifiable(result);
   }
+
+  static bool _namesHuman(String heading, String human) =>
+      heading.contains('RATIFIED') ||
+      heading.contains('Ratified') ||
+      heading.toLowerCase().contains(human.toLowerCase());
 
   static _LegacySource _readRatified(
     LegacyRatifiedAdr ratified, {
@@ -253,7 +338,10 @@ final class LegacyRegisterConversionService implements LegacyRegisterConverter {
         .toLowerCase()
         .replaceAll(RegExp(r'[^a-z0-9]+'), '-')
         .replaceAll(RegExp(r'^-+|-+$'), '');
-    final value = titleSlug.isEmpty ? prefix : '$prefix-$titleSlug';
+    final value = [
+      if (prefix.isNotEmpty) prefix,
+      if (titleSlug.isNotEmpty) titleSlug,
+    ].join('-');
     final shortened = value.length <= 60 ? value : value.substring(0, 60);
     return shortened.replaceFirst(RegExp(r'-+$'), '');
   }
@@ -295,9 +383,17 @@ final class _LegacySource {
 
   final String date;
   final String slug;
-  final String legacyId;
+  final String? legacyId;
   final String decisionMaker;
   final String body;
+}
+
+final class _Heading {
+  const _Heading({required this.start, required this.line, required this.text});
+
+  final int start;
+  final String line;
+  final String text;
 }
 
 final class _PlannedEntry {
