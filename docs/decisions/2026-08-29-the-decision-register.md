@@ -14,7 +14,7 @@ register:
   obsoletes: []
   updates: []
   obsoleted-by: null
-  updated-by: [madr-profile, entry-identity, spec-and-artifact-versioning]
+  updated-by: [madr-profile, entry-identity, spec-and-artifact-versioning, docket-triggers]
   bead: null
   legacy-id: null
 ---

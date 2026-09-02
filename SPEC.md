@@ -140,7 +140,10 @@ detected contradiction, a decision cited N times, or a pending vacate request. I
 worksheet — one row per decision needing a force change — and the dispositions are themselves
 entries with the human in `decision-makers`.
 
-**OPEN:** the trigger thresholds.
+The trigger thresholds and the per-register scope are decided in
+[docket-triggers](docs/decisions/2026-09-02-docket-triggers.md): immediate on a lint or lens
+contradiction and on a pending force request; five citations of one decision or ten new entries
+since the register's last docket; never on the calendar.
 
 ## Versioning
 
