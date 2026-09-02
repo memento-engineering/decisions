@@ -75,9 +75,7 @@ void main() {
   );
 
   test('deprecated updated target is lint-clean', () {
-    final sandbox = Directory.systemTemp.createTempSync(
-      'decision-lint-force-',
-    );
+    final sandbox = Directory.systemTemp.createTempSync('decision-lint-force-');
     try {
       final register = Directory(p.join(sandbox.path, 'docs', 'decisions'))
         ..createSync(recursive: true);
@@ -95,10 +93,7 @@ void main() {
         updates: const ['target'],
       );
 
-      final result = service.lint(
-        registerPath: register.path,
-        repoRoot: '.',
-      );
+      final result = service.lint(registerPath: register.path, repoRoot: '.');
 
       expect(result.isClean, isTrue, reason: '${result.toJson()}');
       expect(result.diagnostics, isEmpty);
@@ -133,14 +128,10 @@ void main() {
           updates: const ['target'],
         );
 
-        final result = service.lint(
-          registerPath: register.path,
-          repoRoot: '.',
-        );
+        final result = service.lint(registerPath: register.path, repoRoot: '.');
         final targetRules = result.diagnostics
             .where(
-              (diagnostic) =>
-                  diagnostic.file.endsWith('2026-01-01-target.md'),
+              (diagnostic) => diagnostic.file.endsWith('2026-01-01-target.md'),
             )
             .map((diagnostic) => diagnostic.ruleId);
 

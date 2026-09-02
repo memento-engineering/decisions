@@ -1,0 +1,32 @@
+name: ci
+
+# The repo has two independently resolved Dart packages and no workspace, so
+# each gates on its own hosted resolve. Both are consumed by other repos
+# through git tags, which means a red package reaches consumers the moment a
+# tag is pushed — this is the gate that stops that.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  dart:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        package:
+          - cli/dart/decisions
+          - grid_assets/decisions_grid_assets
+    defaults:
+      run:
+        working-directory: ${{ matrix.package }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+      - run: dart pub get
+      - run: dart analyze
+      - run: dart format --output=none --set-exit-if-changed .
+      - run: dart test

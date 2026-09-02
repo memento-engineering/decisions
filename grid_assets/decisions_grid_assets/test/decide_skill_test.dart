@@ -54,41 +54,42 @@ void main() {
       ..writeAsStringSync('final class Router {}\n');
     final register = Directory(p.join(temp.path, 'docs', 'decisions'))
       ..createSync(recursive: true);
-    File(p.join(register.path, '2026-08-31-place-router-seam.md'))
-        .writeAsStringSync(
-          '---\n'
-          'status: accepted\n'
-          'date: 2026-08-31\n'
-          'decision-makers: [agent]\n'
-          'consulted: []\n'
-          'informed: []\n'
-          'register:\n'
-          '  spec: 1\n'
-          '  slug: place-router-seam\n'
-          '  surfaces: ["lib/src/router.dart"]\n'
-          '  obsoletes: []\n'
-          '  updates: []\n'
-          '  obsoleted-by: null\n'
-          '  updated-by: []\n'
-          '  bead: dec-fixture\n'
-          '  legacy-id: null\n'
-          '---\n'
-          '\n'
-          '# Place the router at the package seam\n'
-          '\n'
-          '## Context and Problem Statement\n'
-          '\n'
-          'One routing owner was required.\n'
-          '\n'
-          '## Decision Outcome\n'
-          '\n'
-          'The package seam owns routing.\n'
-          '\n'
-          '### Consequences\n'
-          '\n'
-          '* Good, because ownership is explicit.\n'
-          '* Bad, because callers depend on the seam.\n',
-        );
+    File(
+      p.join(register.path, '2026-08-31-place-router-seam.md'),
+    ).writeAsStringSync(
+      '---\n'
+      'status: accepted\n'
+      'date: 2026-08-31\n'
+      'decision-makers: [agent]\n'
+      'consulted: []\n'
+      'informed: []\n'
+      'register:\n'
+      '  spec: 1\n'
+      '  slug: place-router-seam\n'
+      '  surfaces: ["lib/src/router.dart"]\n'
+      '  obsoletes: []\n'
+      '  updates: []\n'
+      '  obsoleted-by: null\n'
+      '  updated-by: []\n'
+      '  bead: dec-fixture\n'
+      '  legacy-id: null\n'
+      '---\n'
+      '\n'
+      '# Place the router at the package seam\n'
+      '\n'
+      '## Context and Problem Statement\n'
+      '\n'
+      'One routing owner was required.\n'
+      '\n'
+      '## Decision Outcome\n'
+      '\n'
+      'The package seam owns routing.\n'
+      '\n'
+      '### Consequences\n'
+      '\n'
+      '* Good, because ownership is explicit.\n'
+      '* Bad, because callers depend on the seam.\n',
+    );
 
     final result = const DecisionLintService().lint(
       registerPath: register.path,
@@ -129,7 +130,10 @@ void main() {
         'Do not install, initialize, or assume Beads.',
       ),
     );
-    expect(_skill, contains('The slug remains the complete conformant identity.'));
+    expect(
+      _skill,
+      contains('The slug remains the complete conformant identity.'),
+    );
   });
 
   test('derives governed surfaces from touched paths', () {
@@ -140,9 +144,15 @@ void main() {
         'git ls-files --others --exclude-standard; } | sort -u',
       ),
     );
-    expect(_skill, contains('Use an exact path when the ruling governs one file.'));
+    expect(
+      _skill,
+      contains('Use an exact path when the ruling governs one file.'),
+    );
     expect(_skill, contains('Use the narrowest directory glob'));
-    expect(_skill, contains('For a deleted path, name the surviving governed parent'));
+    expect(
+      _skill,
+      contains('For a deleted path, name the surviving governed parent'),
+    );
     expect(_skill, contains('Every `register.surfaces` item must match'));
   });
 
