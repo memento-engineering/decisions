@@ -37,7 +37,7 @@ void main() {
         .where((entry) => graph.isBinding(entry.slug))
         .toList();
 
-    expect(binding, hasLength(5));
+    expect(binding, hasLength(6));
     for (final entry in binding) {
       expect(combined, contains('<a id="${entry.slug}"></a>'));
     }

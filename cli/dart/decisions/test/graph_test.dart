@@ -92,20 +92,21 @@ void main() {
     });
   });
 
-  test('self-hosted register reports three updates and binding force', () {
+  test('self-hosted register reports four updates and binding force', () {
     final graph = DecisionGraph(readRegister(_selfHostedRegister));
     final updatedBy = graph
         .updatedBy('the-decision-register')
         .map((entry) => entry.slug)
         .toList();
 
-    expect(updatedBy, hasLength(3));
+    expect(updatedBy, hasLength(4));
     expect(
       updatedBy,
       unorderedEquals([
         'madr-profile',
         'entry-identity',
         'spec-and-artifact-versioning',
+        'docket-triggers',
       ]),
     );
     expect(graph.forceOf('the-decision-register'), DecisionForce.binding);
