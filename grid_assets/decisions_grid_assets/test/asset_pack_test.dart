@@ -23,7 +23,10 @@ final Directory _canonicalRubrics = Directory(
   p.join(_repoRoot.path, 'rubrics'),
 );
 final Directory _generatedRubrics = Directory(
-  p.join(_extensionRoot.path, 'station_overlay', '.claude', 'rubrics'),
+  p.join(_extensionRoot.path, 'rubrics'),
+);
+final Directory _stationOverlay = Directory(
+  p.join(_extensionRoot.path, 'station_overlay'),
 );
 final Directory _decisionAlignmentFixtures = Directory(
   p.join(_packageRoot.path, 'test', 'fixtures', 'decision_alignment'),
@@ -242,7 +245,7 @@ void main() {
       'description':
           'Grades a spec against the roster-wide union of decisions '
           'governing its touched surfaces.',
-      'path': 'station_overlay/.claude/rubrics/decision-alignment.md',
+      'path': 'rubrics/decision-alignment.md',
       'visibility': 'public',
     });
 
@@ -325,5 +328,87 @@ void main() {
     ).readAsStringSync();
     expect(rubric, contains('must not be penalised for citing no decision'));
     expect(rubric, contains('no-precedent form of grade **A**'));
+  });
+
+  test('station_overlay vends only frontmatter-led installable assets', () {
+    final files = _realRelativeFiles(_stationOverlay);
+    expect(files, isNotEmpty);
+    for (final relativePath in files) {
+      final segments = p.split(relativePath);
+      expect(
+        segments.length >= 2 &&
+            segments.first == '.claude' &&
+            (segments[1] == 'skills' || segments[1] == 'agents'),
+        isTrue,
+        reason:
+            'the overlay installs skills and agent defs only — move '
+            '"$relativePath" out of station_overlay',
+      );
+      final body = File(
+        p.join(_stationOverlay.path, relativePath),
+      ).readAsStringSync();
+      expect(
+        provenanceSyntaxFor(relativePath, body),
+        isA<YamlFrontmatterProvenance>(),
+        reason: 'unstampable overlay file: $relativePath',
+      );
+    }
+  });
+
+  test('every declared resource resolves outside the station overlay', () {
+    final resources = _manifestResources(_manifest());
+    expect(resources, isNotEmpty);
+    for (final resource in resources) {
+      expect(resource.keys.map((key) => '$key').toSet(), {
+        'id',
+        'description',
+        'path',
+        'visibility',
+      });
+      final id = resource['id'] as String;
+      final path = resource['path'] as String;
+      expect(path, 'rubrics/$id.md');
+      expect(
+        path.startsWith('station_overlay/'),
+        isFalse,
+        reason: 'a rubric is read at critique time, never installed: $path',
+      );
+      expect(
+        File(p.joinAll([_extensionRoot.path, ...path.split('/')])).existsSync(),
+        isTrue,
+        reason: path,
+      );
+    }
+  });
+
+  test('packaged loader resolves the rubric by id', () {
+    final loader = PackagedAssetLoader(root: _extensionRoot.path);
+    expect(
+      loader.loadRubric('decision-alignment'),
+      File(
+        p.join(_canonicalRubrics.path, 'decision-alignment.md'),
+      ).readAsStringSync().trim(),
+    );
+  });
+
+  test('installing this pack overlay vends the stamped decide skill', () async {
+    final target = Directory.systemTemp.createTempSync('decisions-vend-');
+    addTearDown(() => target.deleteSync(recursive: true));
+
+    final report = await const OverlayInstallService().install(
+      overlayRoots: [_stationOverlay.path],
+      targetRoot: target.path,
+      sourceRef: 'fixture-ref',
+    );
+
+    expect(report.exitCode, 0);
+    expect(report.written.map((file) => file.relativePath).toList(), [
+      p.join('.claude', 'skills', 'decide', 'SKILL.md'),
+    ]);
+    final installed = File(
+      p.join(target.path, '.claude', 'skills', 'decide', 'SKILL.md'),
+    ).readAsStringSync();
+    expect(installed, contains('generated from grid_assets@fixture-ref'));
+    expect(installed, contains('name: decide'));
   });
 }

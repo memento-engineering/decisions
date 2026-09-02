@@ -24,7 +24,7 @@ by copying `templates/` and writing files.
 | `rubrics/` | `decision-alignment`, the committee lens |
 | `docs/decisions/` | this repo's own register (self-hosted) |
 | `cli/dart/` | the deterministic engine — no grid dependency |
-| `grid_assets/` | the grid adapter — installs skills + rubric, composes `<station> decisions` |
+| `grid_assets/` | the grid adapter — installs skills, vends the rubric, composes `<station> decisions` |
 
 ## Tiers
 
