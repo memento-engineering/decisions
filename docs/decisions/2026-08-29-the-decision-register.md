@@ -10,7 +10,6 @@ register:
   surfaces:
     - "SPEC.md"
     - "docs/decisions/**"
-    - "engineering.memento/CLAUDE.md"
   obsoletes: []
   updates: []
   obsoleted-by: null
@@ -82,5 +81,7 @@ Prior art: Steve Yegge, *The Shape of Things to Come* — the layered `brain/` /
 
 Ratifying this entry obsoletes the "ADR-0000 register rule" bullet in
 `engineering.memento/CLAUDE.md` and requires re-pointing `adr-alignment`'s grep instructions at
-`docs/decisions/`. Migration of the six legacy registers is decided separately in
-[legacy-register-migration](2026-08-30-legacy-register-migration.md).
+`docs/decisions/`. Migration of the six legacy registers is an org decision, recorded in the org register as
+[`memento-engineering#legacy-register-migration`](https://github.com/memento-engineering/memento-engineering/blob/main/docs/decisions/2026-08-30-legacy-register-migration.md);
+the org half of this entry's adoption clause now lives there too
+(`memento-engineering#org-decisions-live-in-the-org-register`).
