@@ -391,7 +391,7 @@ void main() {
     );
   });
 
-  test('installing this pack overlay vends the stamped decide skill', () async {
+  test('installing this pack overlay vends both stamped skills', () async {
     final target = Directory.systemTemp.createTempSync('decisions-vend-');
     addTearDown(() => target.deleteSync(recursive: true));
 
@@ -404,11 +404,14 @@ void main() {
     expect(report.exitCode, 0);
     expect(report.written.map((file) => file.relativePath).toList(), [
       p.join('.claude', 'skills', 'decide', 'SKILL.md'),
+      p.join('.claude', 'skills', 'ratify', 'SKILL.md'),
     ]);
-    final installed = File(
-      p.join(target.path, '.claude', 'skills', 'decide', 'SKILL.md'),
-    ).readAsStringSync();
-    expect(installed, contains('generated from grid_assets@fixture-ref'));
-    expect(installed, contains('name: decide'));
+    for (final id in ['decide', 'ratify']) {
+      final installed = File(
+        p.join(target.path, '.claude', 'skills', id, 'SKILL.md'),
+      ).readAsStringSync();
+      expect(installed, contains('generated from grid_assets@fixture-ref'));
+      expect(installed, contains('name: $id'), reason: id);
+    }
   });
 }
