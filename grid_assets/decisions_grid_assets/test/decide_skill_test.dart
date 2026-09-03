@@ -100,7 +100,7 @@ void main() {
 
   test('checks slug collision before writing the entry', () {
     expect(_skill, contains(r'^[a-z0-9]+(-[a-z0-9]+)*$'));
-    expect(_skill, contains('at most 60 characters'));
+    expect(_skill, contains('at most 80 characters'));
     _expectInOrder([
       "decision_slug='chosen-kebab-slug'",
       'rg -n --max-depth 1',

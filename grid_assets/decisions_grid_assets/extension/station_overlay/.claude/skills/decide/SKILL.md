@@ -47,7 +47,7 @@ decision governs:
 
 ### 2. Choose and reserve the slug before any write
 
-Choose a short declarative slug, at most 60 characters, matching
+Choose a short declarative slug, at most 80 characters, matching
 `^[a-z0-9]+(-[a-z0-9]+)*$`. Run these checks before minting a bead or creating
 a file:
 
@@ -57,7 +57,7 @@ decision_date="$(date +%F)"
 decision_file="docs/decisions/${decision_date}-${decision_slug}.md"
 
 test -d docs/decisions
-printf '%s\n' "$decision_slug" | awk 'length($0) <= 60 && $0 ~ /^[a-z0-9]+(-[a-z0-9]+)*$/ { valid=1 } END { exit !valid }'
+printf '%s\n' "$decision_slug" | awk 'length($0) <= 80 && $0 ~ /^[a-z0-9]+(-[a-z0-9]+)*$/ { valid=1 } END { exit !valid }'
 if rg -n --max-depth 1 --glob '*.md' "^[[:space:]]*slug:[[:space:]]*${decision_slug}[[:space:]]*$" docs/decisions ||
    test -e "$decision_file"; then
   printf 'slug collision: %s\n' "$decision_slug" >&2

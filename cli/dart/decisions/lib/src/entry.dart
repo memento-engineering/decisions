@@ -192,7 +192,7 @@ DecisionEntry parseEntry(String file) {
     throw DecisionParseException(file, '`spec` must be at least 1');
   }
   final slug = _string(file, registerValue, 'slug');
-  if (slug.length > 60 || !_slugPattern.hasMatch(slug)) {
+  if (slug.length > 80 || !_slugPattern.hasMatch(slug)) {
     throw DecisionParseException(file, 'invalid `slug`');
   }
   final expectedName = '$date-$slug.md';

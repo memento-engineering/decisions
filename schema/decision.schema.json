@@ -26,7 +26,7 @@
         "slug": {
           "type": "string",
           "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
-          "maxLength": 60,
+          "maxLength": 80,
           "description": "The identity. Unique per register; must match the filename after the date prefix."
         },
         "surfaces": {
