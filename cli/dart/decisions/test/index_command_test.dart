@@ -14,7 +14,10 @@ const _malformedRegister =
     'test/fixtures/index_registers/malformed_repo/docs/decisions';
 const _liveSlug =
     'intake-argv-rides-bdcliservice-with-a-per-key-metadata-channel';
-const _malformedEntry = '$_malformedRegister/2026-01-02-$_liveSlug.md';
+const _malformedSlug =
+    'intake-argv-rides-bdcliservice-with-a-per-key-metadata-channel-'
+    'and-an-overlong-fixture-marker';
+const _malformedEntry = '$_malformedRegister/2026-01-03-$_malformedSlug.md';
 
 Future<Map<String, dynamic>> _runJson(List<String> arguments) async {
   final output = StringBuffer();
@@ -116,7 +119,7 @@ void main() {
     final runner = CommandRunner<int>('decisions', 'Decision register tools')
       ..addCommand(IndexCommand(output: output));
     expect(await runner.run(['index', '--human', _malformedRegister]), 0);
-    expect(output.toString(), contains('decisions: 1'));
+    expect(output.toString(), contains('decisions: 2'));
     expect(output.toString(), contains('diagnostics: 1'));
     expect(
       output.toString(),
