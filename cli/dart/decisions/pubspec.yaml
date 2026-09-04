@@ -3,7 +3,7 @@ description: >-
   The deterministic engine under the decisions register pattern: parse a MADR
   profile register into a citation graph, lint it, and render its views. No
   grid dependency — a repo with no station uses this directly.
-version: 0.1.0
+version: 0.1.1
 publish_to: none
 
 environment:

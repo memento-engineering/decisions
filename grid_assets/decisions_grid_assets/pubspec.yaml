@@ -2,7 +2,7 @@ name: decisions_grid_assets
 description: >-
   The tier-2 grid adapter for decisions: packaged station skills and a
   roster-aware composed decisions command.
-version: 0.2.0
+version: 0.2.1
 publish_to: none
 
 environment:
