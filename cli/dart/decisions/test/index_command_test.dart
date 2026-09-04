@@ -12,8 +12,6 @@ const _otherRegister =
     'test/fixtures/index_registers/other_repo/docs/decisions';
 const _malformedRegister =
     'test/fixtures/index_registers/malformed_repo/docs/decisions';
-const _liveSlug =
-    'intake-argv-rides-bdcliservice-with-a-per-key-metadata-channel';
 const _malformedSlug =
     'intake-argv-rides-bdcliservice-with-a-per-key-metadata-channel-'
     'and-an-overlong-fixture-marker';
