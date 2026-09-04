@@ -122,8 +122,14 @@ final _supersededStatusPattern = RegExp(
 
 /// Reads every `*.md` entry in the register rooted at [directory].
 ///
-/// Subdirectories (notably `views/`) are not entries and are skipped.
-List<DecisionEntry> readRegister(String directory) {
+/// Subdirectories (notably `views/`) are not entries and are skipped. When
+/// [onParseError] is absent, the first malformed entry is thrown exactly as
+/// before. When supplied, each [DecisionParseException] is reported and the
+/// remaining files are parsed.
+List<DecisionEntry> readRegister(
+  String directory, {
+  void Function(DecisionParseException error)? onParseError,
+}) {
   final dir = Directory(directory);
   if (!dir.existsSync()) {
     throw DecisionParseException(directory, 'no such register directory');
@@ -132,10 +138,20 @@ List<DecisionEntry> readRegister(String directory) {
       dir
           .listSync()
           .whereType<File>()
-          .where((f) => f.path.endsWith('.md'))
+          .where((file) => file.path.endsWith('.md'))
           .toList()
-        ..sort((a, b) => a.path.compareTo(b.path));
-  return [for (final f in files) parseEntry(f.path)];
+        ..sort((left, right) => left.path.compareTo(right.path));
+  final entries = <DecisionEntry>[];
+  for (final file in files) {
+    try {
+      entries.add(parseEntry(file.path));
+    } on DecisionParseException catch (error) {
+      final handler = onParseError;
+      if (handler == null) rethrow;
+      handler(error);
+    }
+  }
+  return entries;
 }
 
 /// Parses one entry file.

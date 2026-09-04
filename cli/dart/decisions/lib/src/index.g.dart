@@ -40,4 +40,5 @@ Map<String, dynamic> _$DecisionIndexToJson(DecisionIndex instance) =>
     <String, dynamic>{
       'spec': instance.spec,
       'decisions': instance.decisions.map((e) => e.toJson()).toList(),
+      'diagnostics': instance.diagnostics.map((e) => e.toJson()).toList(),
     };
