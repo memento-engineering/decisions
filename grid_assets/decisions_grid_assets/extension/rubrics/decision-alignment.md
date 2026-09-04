@@ -33,9 +33,12 @@ runner once per unique roster-qualified path:
 Call roster mode with no explicit register-directory arguments. That omission
 is load-bearing: the grid adapter resolves the live mounted-substation roster
 and the command returns the union rather than only the current repo's register.
-Parse the structured JSON `decisions` array and retain results from every
-`originRegister`; a sibling register has exactly the same force as the local
-one.
+Parse the structured JSON `decisions` and `diagnostics` arrays. Retain decisions
+from every `originRegister`; a sibling register has exactly the same force as
+the local one. A non-empty `diagnostics` array marks an incomplete union even
+when the command exits zero: report every diagnostic's `file`, `ruleId`, and
+`message`, continue to account for the well-formed decisions returned, and
+never treat an empty `decisions` array as proof that no decision governs.
 
 For each returned record, read the selected entry under its `originPath`, which
 is a `docs/decisions/` directory, by matching the returned `slug`:
@@ -47,9 +50,11 @@ grep -Erl --include='*.md' '^[[:space:]]*slug:[[:space:]]*<slug>[[:space:]]*$' '
 This grep resolves an entry the index already selected. It must not become a
 keyword search for additional candidates. Read every resolved entry, quote the
 load-bearing clause, and record the queried surface paths in the rationale so a
-claim that no decision applies is verifiable. An empty `decisions` array for
-every touched path means no recorded decision governs the spec's surfaces; do
-not manufacture a citation.
+claim that no decision applies is verifiable.
+
+A lookup that fails, exits non-zero, or returns a non-empty `diagnostics` array
+is NOT an empty union. Report the failure or per-entry diagnostics verbatim and
+never grade the lane clean on a crashed or incomplete lookup.
 
 ## Bands
 

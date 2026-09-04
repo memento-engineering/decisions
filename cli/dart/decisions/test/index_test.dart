@@ -9,6 +9,14 @@ const _otherRegister =
     'test/fixtures/index_registers/other_repo/docs/decisions';
 const _futureRegister =
     'test/fixtures/index_registers/future_repo/docs/decisions';
+const _malformedRegister =
+    'test/fixtures/index_registers/malformed_repo/docs/decisions';
+const _liveSlug =
+    'intake-argv-rides-bdcliservice-with-a-per-key-metadata-channel';
+const _malformedSlug =
+    'intake-argv-rides-bdcliservice-with-a-per-key-metadata-channel-'
+    'and-an-overlong-fixture-marker';
+const _malformedEntry = '$_malformedRegister/2026-01-03-$_malformedSlug.md';
 
 void main() {
   test('resolves a cross-register legacy reference in the union', () {
@@ -81,7 +89,7 @@ void main() {
   test('declares schema versions and refuses a future entry spec', () {
     expect(decisionEntrySpecMinimum, 1);
     expect(decisionEntrySpecMaximum, 1);
-    expect(decisionIndexOutputSpec, 1);
+    expect(decisionIndexOutputSpec, 2);
     expect(
       DecisionIndex.fromRegisterPaths([_sourceRegister]).decisions,
       isNotEmpty,
@@ -96,6 +104,62 @@ void main() {
         ),
       ),
     );
+  });
+
+  test(
+    'keeps a clean roster decision when a sibling entry exceeds the 80-character cap',
+    () {
+      final union = DecisionIndex.fromRegisterPaths([
+        _sourceRegister,
+        _malformedRegister,
+      ]);
+
+      expect(
+        union.decisions.map(
+          (decision) => '${decision.originRegister}#${decision.slug}',
+        ),
+        unorderedEquals([
+          'source_repo#watcher-policy',
+          'malformed_repo#healthy-rule',
+          'malformed_repo#$_liveSlug',
+        ]),
+      );
+      final filtered = union.governing('source_repo/lib/watcher/service.dart');
+      expect(
+        filtered.decisions.map(
+          (decision) => '${decision.originRegister}#${decision.slug}',
+        ),
+        ['source_repo#watcher-policy'],
+      );
+      expect(filtered.diagnostics.single.file, _malformedEntry);
+    },
+  );
+
+  test('index and lint share the malformed-entry reason', () {
+    final indexed = DecisionIndex.fromRegisterPaths([_malformedRegister]);
+    final linted = const DecisionLintService().lint(
+      registerPath: _malformedRegister,
+      repoRoot: '.',
+    );
+    final lintDiagnostic = linted.diagnostics.singleWhere(
+      (diagnostic) => diagnostic.file == _malformedEntry,
+    );
+
+    expect(indexed.diagnostics.single.toJson(), lintDiagnostic.toJson());
+    expect(indexed.diagnostics.single.ruleId, DecisionLintRules.entrySchema);
+    expect(indexed.diagnostics.single.message, 'invalid `slug`');
+  });
+
+  test('accepts the live 62-character slug and skips an over-80 sibling', () {
+    expect(_liveSlug.length, 62);
+    expect(_malformedSlug.length, 93);
+    final index = DecisionIndex.fromRegisterPaths([_malformedRegister]);
+
+    expect(index.decisions.map((decision) => decision.slug), [
+      'healthy-rule',
+      _liveSlug,
+    ]);
+    expect(index.diagnostics.single.file, _malformedEntry);
   });
 }
 

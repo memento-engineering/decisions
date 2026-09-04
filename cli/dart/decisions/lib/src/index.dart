@@ -4,6 +4,7 @@ import 'package:path/path.dart' as p;
 
 import 'entry.dart';
 import 'graph.dart';
+import 'lint.dart';
 
 part 'index.g.dart';
 
@@ -14,7 +15,7 @@ const decisionEntrySpecMinimum = 1;
 const decisionEntrySpecMaximum = 1;
 
 /// JSON schema version emitted by [DecisionIndex.toJson].
-const decisionIndexOutputSpec = 1;
+const decisionIndexOutputSpec = 2;
 
 /// Whether an authored index edge found its target in the supplied union.
 enum DecisionIndexEdgeResolution {
@@ -97,9 +98,12 @@ final class IndexedDecision {
 /// A deterministic, read-only union over one or more decision registers.
 @JsonSerializable(createFactory: false, explicitToJson: true)
 final class DecisionIndex {
-  DecisionIndex._(List<IndexedDecision> decisions)
-    : spec = decisionIndexOutputSpec,
-      decisions = List<IndexedDecision>.unmodifiable(decisions);
+  DecisionIndex._({
+    required List<IndexedDecision> decisions,
+    required List<DecisionLintDiagnostic> diagnostics,
+  }) : spec = decisionIndexOutputSpec,
+       decisions = List<IndexedDecision>.unmodifiable(decisions),
+       diagnostics = List<DecisionLintDiagnostic>.unmodifiable(diagnostics);
 
   /// Reads [registerPaths] and resolves their authored graphs into one union.
   factory DecisionIndex.fromRegisterPaths(Iterable<String> registerPaths) {
@@ -110,6 +114,7 @@ final class DecisionIndex {
       );
     }
 
+    final diagnostics = <DecisionLintDiagnostic>[];
     final registers = <String, _LoadedRegister>{};
     for (final path in paths) {
       final name = _originRegister(path);
@@ -121,7 +126,12 @@ final class DecisionIndex {
         );
       }
 
-      final entries = readRegister(path);
+      final entries = readRegister(
+        path,
+        onParseError: (error) {
+          diagnostics.add(DecisionLintDiagnostic.fromParseException(error));
+        },
+      );
       for (final entry in entries) {
         if (entry.spec < decisionEntrySpecMinimum ||
             entry.spec > decisionEntrySpecMaximum) {
@@ -173,7 +183,8 @@ final class DecisionIndex {
           ? registerOrder
           : left.slug.compareTo(right.slug);
     });
-    return DecisionIndex._(decisions);
+    diagnostics.sort(DecisionLintDiagnostic.compare);
+    return DecisionIndex._(decisions: decisions, diagnostics: diagnostics);
   }
 
   /// Output schema version.
@@ -182,13 +193,16 @@ final class DecisionIndex {
   /// All decisions in deterministic origin-register/slug order.
   final List<IndexedDecision> decisions;
 
+  /// Entries that could not be parsed, in deterministic file/rule/message order.
+  final List<DecisionLintDiagnostic> diagnostics;
+
   /// Returns only decisions governing [rosterRelativePath].
   DecisionIndex governing(String rosterRelativePath) {
     final normalized = p.posix.normalize(
       rosterRelativePath.replaceAll('\\', '/'),
     );
     return DecisionIndex._(
-      decisions
+      decisions: decisions
           .where((decision) {
             return decision.surfaces.any((surface) {
               final normalizedSurface = surface.replaceAll('\\', '/');
@@ -199,6 +213,7 @@ final class DecisionIndex {
             });
           })
           .toList(growable: false),
+      diagnostics: diagnostics,
     );
   }
 

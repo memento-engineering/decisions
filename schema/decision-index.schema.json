@@ -1,18 +1,32 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/memento-engineering/decisions/schema/decision-index.schema.json",
-  "title": "decisions index output (schema 1)",
+  "title": "decisions index output (schema 2)",
   "type": "object",
   "additionalProperties": false,
-  "required": ["spec", "decisions"],
+  "required": ["spec", "decisions", "diagnostics"],
   "properties": {
-    "spec": { "const": 1 },
+    "spec": { "const": 2 },
     "decisions": {
       "type": "array",
       "items": { "$ref": "#/$defs/decision" }
+    },
+    "diagnostics": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/diagnostic" }
     }
   },
   "$defs": {
+    "diagnostic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ruleId", "file", "message"],
+      "properties": {
+        "ruleId": { "type": "string", "minLength": 1 },
+        "file": { "type": "string", "minLength": 1 },
+        "message": { "type": "string", "minLength": 1 }
+      }
+    },
     "decision": {
       "type": "object",
       "additionalProperties": false,

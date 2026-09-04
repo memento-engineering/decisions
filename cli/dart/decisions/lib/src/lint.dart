@@ -41,6 +41,32 @@ final class DecisionLintDiagnostic {
     required this.message,
   });
 
+  /// Creates the same per-entry diagnostic used when parsing fails in lint or
+  /// another read-only consumer.
+  factory DecisionLintDiagnostic.fromParseException(
+    DecisionParseException error, {
+    String? file,
+  }) => DecisionLintDiagnostic(
+    ruleId: switch (error.failure) {
+      DecisionParseFailure.schema => DecisionLintRules.entrySchema,
+      DecisionParseFailure.filename => DecisionLintRules.identityFilename,
+    },
+    file: file ?? error.file,
+    message: error.message,
+  );
+
+  /// Orders diagnostics deterministically by file, rule id, then message.
+  static int compare(
+    DecisionLintDiagnostic left,
+    DecisionLintDiagnostic right,
+  ) {
+    final fileOrder = left.file.compareTo(right.file);
+    if (fileOrder != 0) return fileOrder;
+    final ruleOrder = left.ruleId.compareTo(right.ruleId);
+    if (ruleOrder != 0) return ruleOrder;
+    return left.message.compareTo(right.message);
+  }
+
   final String ruleId;
   final String file;
   final String message;
@@ -153,15 +179,10 @@ final class DecisionLintService implements DecisionLinter {
         }
       } on DecisionParseException catch (error) {
         graphIsSound = false;
-        final ruleId = switch (error.failure) {
-          DecisionParseFailure.schema => DecisionLintRules.entrySchema,
-          DecisionParseFailure.filename => DecisionLintRules.identityFilename,
-        };
         diagnostics.add(
-          DecisionLintDiagnostic(
-            ruleId: ruleId,
+          DecisionLintDiagnostic.fromParseException(
+            error,
             file: _display(error.file, root),
-            message: error.message,
           ),
         );
       }
@@ -388,13 +409,7 @@ final class DecisionLintService implements DecisionLinter {
     String repoRoot,
     List<DecisionLintDiagnostic> diagnostics,
   ) {
-    diagnostics.sort((left, right) {
-      final fileOrder = left.file.compareTo(right.file);
-      if (fileOrder != 0) return fileOrder;
-      final ruleOrder = left.ruleId.compareTo(right.ruleId);
-      if (ruleOrder != 0) return ruleOrder;
-      return left.message.compareTo(right.message);
-    });
+    diagnostics.sort(DecisionLintDiagnostic.compare);
     return DecisionLintResult(
       register: _display(register, repoRoot),
       diagnostics: diagnostics,

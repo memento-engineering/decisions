@@ -19,12 +19,18 @@ final class IndexCommand extends Command<int> {
   IndexCommand({StringSink? output, RegisterPathResolver? registerPaths})
     : _output = output ?? stdout,
       _registerPaths = registerPaths {
-    argParser.addOption(
-      'surface',
-      abbr: 's',
-      valueHelp: 'register/path',
-      help: 'Keep only decisions governing this roster-qualified path.',
-    );
+    argParser
+      ..addOption(
+        'surface',
+        abbr: 's',
+        valueHelp: 'register/path',
+        help: 'Keep only decisions governing this roster-qualified path.',
+      )
+      ..addFlag(
+        'human',
+        negatable: false,
+        help: 'Emit a human-readable decision and diagnostic summary.',
+      );
   }
 
   final StringSink _output;
@@ -51,7 +57,26 @@ final class IndexCommand extends Command<int> {
     final surface = results.option('surface');
     final union = DecisionIndex.fromRegisterPaths(registerPaths);
     final index = surface == null ? union : union.governing(surface);
-    _output.writeln(jsonEncode(index.toJson()));
+    if (results.flag('human')) {
+      _writeHuman(index);
+    } else {
+      _output.writeln(jsonEncode(index.toJson()));
+    }
     return 0;
+  }
+
+  void _writeHuman(DecisionIndex index) {
+    _output.writeln('decisions: ${index.decisions.length}');
+    for (final decision in index.decisions) {
+      _output.writeln(
+        '- ${decision.originRegister}#${decision.slug} [${decision.status}]',
+      );
+    }
+    _output.writeln('diagnostics: ${index.diagnostics.length}');
+    for (final diagnostic in index.diagnostics) {
+      _output.writeln(
+        '- ${diagnostic.file}: [${diagnostic.ruleId}] ${diagnostic.message}',
+      );
+    }
   }
 }
