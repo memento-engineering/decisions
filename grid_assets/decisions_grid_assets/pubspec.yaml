@@ -11,13 +11,51 @@ environment:
 dependencies:
   decisions:
     path: ../../cli/dart/decisions
-  # rc.13 retired AssetsCommand(overlayRoots:) — adopt it deliberately (see the
-  # decisions store), never by a fresh resolve.
-  grid_assets: '>=0.6.0-rc.5 <0.6.0-rc.13'
+  grid_assets: ^0.6.0-rc.13
+  grid_sdk: ^0.3.0-rc.11
   path: ^1.9.0
 
 dev_dependencies:
   args: ^2.6.0
+  # runGridAssetsGenerator formats through this package; keep its output
+  # byte-stable under the formatter bundled with the CI Dart SDK.
+  dart_style: 3.1.7
   lints: ^5.1.0
   test: ^1.25.0
   yaml: ^3.1.2
+
+grid:
+  assets:
+    - id: decision-alignment
+      kind: rubric
+      description: "Grades a spec against the roster-wide union of decisions governing its touched surfaces."
+      audience: agent
+      visibility: public
+      selector: decision-register
+      artifacts:
+        - target: mcp
+          path: extension/rubrics/decision-alignment.md
+
+    - id: decide
+      kind: skill
+      description: "Record a placement, naming, seam, policy, or human ruling that has already been decided, with collision-safe identity, governed surfaces, honest authorship, correct edges, an optional minted decision bead, and first-write validation."
+      audience: agent
+      visibility: public
+      selector: decision-register
+      artifacts:
+        - target: claude
+          path: extension/station_overlay/claude/skills/decide/SKILL.md
+
+    - id: ratify
+      kind: skill
+      description: "Hold a docket for one decision register - compute the four ratified trigger signals, present a bounded worksheet of the decisions needing a force change with a proposed disposition and its evidence, and record every ruling as an entry plus its force operation."
+      audience: human
+      visibility: public
+      selector: decision-register
+      artifacts:
+        - target: claude
+          path: extension/station_overlay/claude/skills/ratify/SKILL.md
+
+  station_overlay:
+    mappings:
+      claude: .claude

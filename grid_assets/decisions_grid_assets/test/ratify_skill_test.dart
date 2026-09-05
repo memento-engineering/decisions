@@ -297,14 +297,14 @@ void main() {
       (skill) => skill['id'] == 'ratify',
     );
     expect(ratify['audience'], 'operator');
-    expect(ratify['path'], 'station_overlay/.claude/skills/ratify/SKILL.md');
+    expect(ratify['path'], 'station_overlay/claude/skills/ratify/SKILL.md');
     expect(
       File(
         p.join(
           _packageRoot.path,
           'extension',
           'station_overlay',
-          '.claude',
+          'claude',
           'skills',
           'ratify',
           'SKILL.md',
