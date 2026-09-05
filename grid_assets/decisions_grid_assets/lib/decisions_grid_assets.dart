@@ -6,6 +6,7 @@ import 'package:decisions/decisions.dart'
 
 export 'package:decisions/decisions.dart'
     show DecisionIndex, DecisionsCommand, IndexCommand, RegisterPathResolver;
+export 'src/assets/grid_asset_pack.dart';
 export 'src/command.dart';
 
 /// Lowest decision-entry spec this adapter reads.

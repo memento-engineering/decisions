@@ -3,7 +3,8 @@ import 'dart:io';
 
 import 'package:args/command_runner.dart';
 import 'package:decisions_grid_assets/decisions_grid_assets.dart';
-import 'package:grid_assets/grid_assets.dart';
+import 'package:grid_assets/grid_assets.dart' hide GridAssetsPack;
+import 'package:grid_sdk/grid_sdk.dart' as sdk;
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 import 'package:yaml/yaml.dart';
@@ -17,7 +18,7 @@ final Directory _extensionRoot = Directory(
 );
 final Directory _canonicalSkills = Directory(p.join(_repoRoot.path, 'skills'));
 final Directory _generatedSkills = Directory(
-  p.join(_extensionRoot.path, 'station_overlay', '.claude', 'skills'),
+  p.join(_extensionRoot.path, 'station_overlay', 'claude', 'skills'),
 );
 final Directory _canonicalRubrics = Directory(
   p.join(_repoRoot.path, 'rubrics'),
@@ -123,14 +124,25 @@ void main() {
     for (final skill in skills) {
       expect(skill.keys.map((key) => '$key').toSet(), {
         'id',
+        'description',
         'audience',
         'path',
+        'visibility',
       });
       final id = skill['id'] as String;
+      final description = skill['description'] as String;
       final audience = skill['audience'] as String;
       final path = skill['path'] as String;
-      expect(audience, anyOf('operator', 'agent'));
-      expect(path, 'station_overlay/.claude/skills/$id/SKILL.md');
+      final visibility = skill['visibility'] as String;
+      final definition = GridAssetsPack.definition.assets.singleWhere(
+        (asset) =>
+            asset.assetKey.kind == sdk.AssetKind.skill &&
+            asset.assetKey.id == id,
+      );
+      expect(description, definition.description);
+      expect(audience, id == 'ratify' ? 'operator' : 'agent');
+      expect(path, 'station_overlay/claude/skills/$id/SKILL.md');
+      expect(visibility, 'public');
       expect(declaredPaths.add(path), isTrue, reason: 'duplicate $path');
       expect(
         File(p.joinAll([_extensionRoot.path, ...path.split('/')])).existsSync(),
@@ -142,7 +154,7 @@ void main() {
     final generatedSkillPaths = {
       for (final relativePath in _realRelativeFiles(_generatedSkills))
         if (p.basename(relativePath) == 'SKILL.md')
-          'station_overlay/.claude/skills/'
+          'station_overlay/claude/skills/'
               '${relativePath.split(p.separator).join('/')}',
     };
     expect(declaredPaths, generatedSkillPaths);
@@ -203,12 +215,68 @@ void main() {
     );
   });
 
+  test('generated asset registry is current and declares the pack', () {
+    final output = StringBuffer();
+    expect(
+      runGridAssetsGenerator(
+        packageRoot: _packageRoot.path,
+        check: true,
+        out: output,
+      ),
+      0,
+    );
+    expect(
+      output.toString(),
+      'grid: 3 assets, 0 with an UNDECLARED selector\n',
+    );
+    expect(
+      [
+        for (final asset in GridAssetsPack.definition.assets)
+          (
+            kind: asset.assetKey.kind,
+            id: asset.assetKey.id,
+            audience: asset.audience,
+            selector: (asset.selector as sdk.RequiresPath).relativePath,
+          ),
+      ],
+      [
+        (
+          kind: sdk.AssetKind.rubric,
+          id: 'decision-alignment',
+          audience: sdk.AssetAudience.agent,
+          selector: 'docs/decisions',
+        ),
+        (
+          kind: sdk.AssetKind.skill,
+          id: 'decide',
+          audience: sdk.AssetAudience.agent,
+          selector: 'docs/decisions',
+        ),
+        (
+          kind: sdk.AssetKind.skill,
+          id: 'ratify',
+          audience: sdk.AssetAudience.human,
+          selector: 'docs/decisions',
+        ),
+      ],
+    );
+  });
+
   test('overlay installer materializes a skill into the target', () async {
     final temp = Directory.systemTemp.createTempSync('decisions-install-');
     addTearDown(() => temp.deleteSync(recursive: true));
-    final overlay = Directory(p.join(temp.path, 'station_overlay'));
     final source =
-        File(p.join(overlay.path, '.claude', 'skills', 'fixture', 'SKILL.md'))
+        File(
+            p.join(
+              temp.path,
+              'extension',
+              'station_overlay',
+              'claude',
+              'skills',
+              'fixture',
+              'SKILL.md',
+            ),
+          )
           ..createSync(recursive: true)
           ..writeAsStringSync(
             '---\n'
@@ -220,9 +288,45 @@ void main() {
           );
     final target = Directory(p.join(temp.path, 'target'))
       ..createSync(recursive: true);
+    const substation = SubstationKey('fixture');
+    final registry = sdk.GridAssetRegistry(<sdk.GridAssetPackDefinition>[
+      sdk.GridAssetPackDefinition(
+        package: 'fixture_assets',
+        assets: const <sdk.GridAssetDefinition>[
+          sdk.GridAssetDefinition(
+            assetKey: sdk.AssetKey(
+              package: 'fixture_assets',
+              kind: sdk.AssetKind.skill,
+              id: 'fixture',
+            ),
+            description: 'Installer fixture.',
+            audience: sdk.AssetAudience.agent,
+            visibility: sdk.AssetVisibility.public,
+            selector: sdk.AlwaysApplies(),
+            artifacts: <sdk.AssetArtifact>[
+              sdk.AssetArtifact(
+                target: sdk.AssetDeliveryTarget.claude,
+                path:
+                    'extension/station_overlay/claude/skills/fixture/SKILL.md',
+              ),
+            ],
+          ),
+        ],
+      ),
+    ]);
+    final resolution = resolveGridAssets(
+      registry: registry,
+      snapshot: SubstationFactsSnapshot(<SubstationKey, SubstationFacts>{
+        substation: SubstationFacts(
+          root: temp.path,
+          packageRoots: <String, String>{'fixture_assets': temp.path},
+        ),
+      }),
+      substation: substation,
+    );
 
     final report = await const OverlayInstallService().install(
-      overlayRoots: [overlay.path],
+      resolution: resolution,
       targetRoot: target.path,
       sourceRef: 'fixture-ref',
     );
@@ -337,7 +441,7 @@ void main() {
       final segments = p.split(relativePath);
       expect(
         segments.length >= 2 &&
-            segments.first == '.claude' &&
+            segments.first == 'claude' &&
             (segments[1] == 'skills' || segments[1] == 'agents'),
         isTrue,
         reason:
@@ -394,9 +498,26 @@ void main() {
   test('installing this pack overlay vends both stamped skills', () async {
     final target = Directory.systemTemp.createTempSync('decisions-vend-');
     addTearDown(() => target.deleteSync(recursive: true));
+    const substation = SubstationKey('decisions-grid-assets-test');
+    final registry = sdk.GridAssetRegistry(<sdk.GridAssetPackDefinition>[
+      GridAssetsPack.definition,
+    ]);
+    final factsRepository = FileSystemSubstationFactsRepository(
+      roots: <SubstationKey, String>{substation: _packageRoot.path},
+      registry: registry,
+    );
+    addTearDown(factsRepository.dispose);
+    final resolution = resolveGridAssets(
+      registry: registry,
+      snapshot: factsRepository.current,
+      substation: substation,
+      rosterOverride: GridAssetRosterOverride(
+        include: GridAssetsPack.assets.map((asset) => asset.assetKey),
+      ),
+    );
 
     final report = await const OverlayInstallService().install(
-      overlayRoots: [_stationOverlay.path],
+      resolution: resolution,
       targetRoot: target.path,
       sourceRef: 'fixture-ref',
     );
