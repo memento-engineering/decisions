@@ -1,51 +1,29 @@
-# Agent Instructions
+# Agent Instructions — `decisions`
 
-This project uses **bd** (beads) for issue tracking. Run `bd prime` for full workflow context.
+**This repo is PUBLIC.** It ships the decision-register format to outside adopters.
 
-> **Architecture in one line:** Issues live in a local Dolt database
-> (`.beads/dolt/`); cross-machine sync uses `bd dolt push/pull` (a
-> git-compatible protocol), stored under `refs/dolt/data` on your git
-> remote — separate from `refs/heads/*` where your code lives.
-> `.beads/issues.jsonl` is a passive export, not the wire protocol.
->
-> See [sync-concepts](https://github.com/gastownhall/beads/blob/main/docs/core-concepts/sync-concepts.md)
-> for the one-screen overview and anti-patterns (don't treat JSONL as the
-> source of truth; don't `bd import` during normal operation; don't
-> reach for third-party Dolt hosting before trying the default).
+`CLAUDE.md` is the full maintainer doc for this repo — read it before changing anything.
+It covers the layout and which copies are generated, the two-package build, and the
+conventions that bite. This file adds only what is not there.
 
-## Quick Reference
+`README.md`, `SPEC.md`, `templates/` and `schema/` are **user docs**, written for adopters.
+This file and `CLAUDE.md` are **maintainer docs**. Never leak one into the other
+(`memento-engineering#maintainer-and-user-docs-are-separate`).
+
+## The gate
+
+Two independently resolved packages, no workspace. Run each on its own:
 
 ```bash
-bd ready              # Find available work
-bd show <id>          # View issue details
-bd update <id> --claim  # Claim work atomically
-bd close <id>         # Complete work
-bd dolt push          # Push beads data to remote
+cd cli/dart/decisions                 && dart pub get && dart analyze && dart test
+cd grid_assets/decisions_grid_assets  && dart pub get && dart analyze && dart test
 ```
 
-## Non-Interactive Shell Commands
+## Non-interactive shells
 
-**ALWAYS use non-interactive flags** with file operations to avoid hanging on confirmation prompts.
-
-Shell commands like `cp`, `mv`, and `rm` may be aliased to include `-i` (interactive) mode on some systems, causing the agent to hang indefinitely waiting for y/n input.
-
-**Use these forms instead:**
-```bash
-# Force overwrite without prompting
-cp -f source dest           # NOT: cp source dest
-mv -f source dest           # NOT: mv source dest
-rm -f file                  # NOT: rm file
-
-# For recursive operations
-rm -rf directory            # NOT: rm -r directory
-cp -rf source dest          # NOT: cp -r source dest
-```
-
-**Other commands that may prompt:**
-- `scp` - use `-o BatchMode=yes` for non-interactive
-- `ssh` - use `-o BatchMode=yes` to fail instead of prompting
-- `apt-get` - use `-y` flag
-- `brew` - use `HOMEBREW_NO_AUTO_UPDATE=1` env var
+`cp`, `mv` and `rm` may be aliased to `-i` and will hang waiting for y/n. Always pass `-f`
+(`rm -rf`, `cp -rf`); use `-o BatchMode=yes` for `ssh`/`scp`, `-y` for `apt-get`, and
+`HOMEBREW_NO_AUTO_UPDATE=1` for `brew`.
 
 <!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:46cd31e7 -->
 ## Beads Issue Tracker
