@@ -275,6 +275,11 @@ final class DecisionIndex {
     if (parts.length >= 3 &&
         parts.last == 'decisions' &&
         parts[parts.length - 2] == 'docs') {
+      if (parts.length >= 6 &&
+          parts[parts.length - 6] == '.grid' &&
+          parts[parts.length - 5] == 'worktrees') {
+        return parts[parts.length - 4];
+      }
       return parts[parts.length - 3];
     }
     final name = p.basename(p.normalize(registerPath));

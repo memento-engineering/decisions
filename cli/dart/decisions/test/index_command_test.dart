@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:args/command_runner.dart';
 import 'package:decisions/decisions.dart';
 import 'package:json_schema/json_schema.dart';
+import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 const _sourceRegister =
@@ -144,4 +145,62 @@ void main() {
     expect(incomplete['decisions'], isEmpty);
     expect(incomplete['diagnostics'], hasLength(1));
   });
+
+  test(
+    'filters a grid worktree register by the store-qualified surface',
+    () async {
+      final sandbox = await Directory.systemTemp.createTemp(
+        'decisions-index-command-',
+      );
+      try {
+        final registerPath = p.join(
+          sandbox.path,
+          '.grid',
+          'worktrees',
+          'lenny',
+          'lenny-0hgr',
+          'docs',
+          'decisions',
+        );
+        final register = await Directory(registerPath).create(recursive: true);
+        await File(
+          p.join(register.path, '2026-09-09-ci-policy.md'),
+        ).writeAsString('''
+---
+status: accepted
+date: 2026-09-09
+decision-makers: [fixture]
+register:
+  spec: 1
+  slug: ci-policy
+  surfaces: [".github/workflows/ci.yaml"]
+  obsoletes: []
+  updates: []
+  obsoleted-by: null
+  updated-by: []
+  bead: null
+  legacy-id: null
+---
+
+# CI policy
+''');
+
+        final decoded = await _runJson([
+          'index',
+          registerPath,
+          '--surface',
+          'lenny/.github/workflows/ci.yaml',
+        ]);
+        final decisions = (decoded['decisions'] as List<dynamic>)
+            .cast<Map<String, dynamic>>();
+
+        expect(decisions, hasLength(1));
+        expect(decisions.single['originRegister'], 'lenny');
+        expect(decisions.single['slug'], 'ci-policy');
+        expect(decisions.single['surfaces'], ['.github/workflows/ci.yaml']);
+      } finally {
+        await sandbox.delete(recursive: true);
+      }
+    },
+  );
 }
