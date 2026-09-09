@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:decisions/decisions.dart';
+import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 const _sourceRegister =
@@ -161,6 +162,91 @@ void main() {
     ]);
     expect(index.diagnostics.single.file, _malformedEntry);
   });
+
+  test('infers the store from a grid worktree register path', () {
+    final sandbox = Directory.systemTemp.createTempSync('decisions-index-');
+    try {
+      final registerPath = p.join(
+        sandbox.path,
+        '.grid',
+        'worktrees',
+        'lenny',
+        'lenny-0hgr',
+        'docs',
+        'decisions',
+      );
+      _createCiRegister(registerPath);
+
+      final index = DecisionIndex.fromRegisterPaths([registerPath]);
+      final decision = index.decisions.single;
+
+      expect(decision.originRegister, 'lenny');
+      expect(decision.surfaces, ['.github/workflows/ci.yaml']);
+      expect(
+        index
+            .governing('lenny/.github/workflows/ci.yaml')
+            .decisions
+            .single
+            .slug,
+        'ci-policy',
+      );
+    } finally {
+      sandbox.deleteSync(recursive: true);
+    }
+  });
+
+  test('preserves primary-checkout and bare register names', () {
+    final sandbox = Directory.systemTemp.createTempSync('decisions-index-');
+    try {
+      final primaryRegister = p.join(
+        sandbox.path,
+        'lenny',
+        'docs',
+        'decisions',
+      );
+      final bareRegister = p.join(sandbox.path, 'standalone-register');
+      _createCiRegister(primaryRegister);
+      _createCiRegister(bareRegister);
+
+      expect(
+        DecisionIndex.fromRegisterPaths([
+          primaryRegister,
+        ]).decisions.single.originRegister,
+        'lenny',
+      );
+      expect(
+        DecisionIndex.fromRegisterPaths([
+          bareRegister,
+        ]).decisions.single.originRegister,
+        'standalone-register',
+      );
+    } finally {
+      sandbox.deleteSync(recursive: true);
+    }
+  });
+}
+
+void _createCiRegister(String path) {
+  final register = Directory(path)..createSync(recursive: true);
+  File(p.join(register.path, '2026-09-09-ci-policy.md')).writeAsStringSync('''
+---
+status: accepted
+date: 2026-09-09
+decision-makers: [fixture]
+register:
+  spec: 1
+  slug: ci-policy
+  surfaces: [".github/workflows/ci.yaml"]
+  obsoletes: []
+  updates: []
+  obsoleted-by: null
+  updated-by: []
+  bead: null
+  legacy-id: null
+---
+
+# CI policy
+''');
 }
 
 IndexedDecision _decision(
