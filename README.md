@@ -45,5 +45,15 @@ linked to the work graph**.
 
 ## Status
 
-The format is settled at spec 1 and self-hosted in [`docs/decisions/`](docs/decisions). Not yet
-built: the CLI, the grid asset pack, the skills, and the rubric.
+The format is settled at spec 1 and self-hosted in [`docs/decisions/`](docs/decisions).
+
+All three tiers are built. Tier 0 works today by copying `templates/`. Tier 1 is the Dart engine
+in [`cli/dart/decisions/`](cli/dart/decisions) — `index`, `lint`, `migrate-legacy`, `obsolete`,
+`update`, `vacate`, each with JSON output. Tier 2 is
+[`grid_assets/decisions_grid_assets/`](grid_assets/decisions_grid_assets), which installs the
+`decide` and `ratify` skills, vends the `decision-alignment` rubric, and composes a
+`<station> decisions` command over a live roster.
+
+Neither Dart package is published to pub.dev yet (`publish_to: none`); consume them by git ref, or
+vendor `cli/dart/decisions` directly. A tier-1 implementation in another ecosystem is unbuilt —
+the format is specified so that it does not have to be Dart.
