@@ -224,6 +224,7 @@ void main() {
         out: output,
       ),
       0,
+      reason: output.toString(),
     );
     expect(
       output.toString(),
@@ -259,6 +260,53 @@ void main() {
           selector: 'docs/decisions',
         ),
       ],
+    );
+  });
+
+  test('stale generated registry diagnostic reaches the failure message', () {
+    final temp = Directory.systemTemp.createTempSync('decisions-stale-');
+    addTearDown(() => temp.deleteSync(recursive: true));
+    File(p.join(temp.path, 'pubspec.yaml')).writeAsStringSync(
+      'name: stale_fixture\n'
+      'grid:\n'
+      '  assets: []\n',
+    );
+    final output = StringBuffer();
+
+    final result = runGridAssetsGenerator(
+      packageRoot: temp.path,
+      check: true,
+      out: output,
+    );
+
+    expect(result, 1);
+    expect(
+      output.toString(),
+      'STALE lib/src/assets/grid_asset_pack.dart — '
+      'run `dart run tool/generate_grid_assets.dart`\n'
+      'STALE extension/mcp/config.yaml — '
+      'run `dart run tool/generate_grid_assets.dart`\n'
+      'grid: 0 assets, 0 with an UNDECLARED selector\n',
+    );
+    expect(
+      File(
+        p.join(temp.path, 'lib', 'src', 'assets', 'grid_asset_pack.dart'),
+      ).existsSync(),
+      isFalse,
+    );
+    expect(
+      File(p.join(temp.path, 'extension', 'mcp', 'config.yaml')).existsSync(),
+      isFalse,
+    );
+    expect(
+      () => expect(result, 0, reason: output.toString()),
+      throwsA(
+        isA<TestFailure>().having(
+          (failure) => failure.message,
+          'message',
+          contains(output.toString()),
+        ),
+      ),
     );
   });
 
