@@ -5,7 +5,22 @@ import 'package:decisions/decisions.dart'
     show decisionEntrySpecMaximum, decisionEntrySpecMinimum;
 
 export 'package:decisions/decisions.dart'
-    show DecisionIndex, DecisionsCommand, IndexCommand, RegisterPathResolver;
+    show
+        DecisionIndex,
+        DecisionRegisterSnapshot,
+        DecisionRegisterUnion,
+        DecisionSearchCommand,
+        DecisionSearchFilters,
+        DecisionSearchHit,
+        DecisionSearchResult,
+        DecisionSearchService,
+        DecisionSearchStatusFilter,
+        DecisionsCommand,
+        IndexCommand,
+        RegisterPathResolver,
+        decisionSearchOutputSpec,
+        decisionSearchSnippetCap,
+        matchesDecisionSurface;
 export 'src/assets/grid_asset_pack.dart';
 export 'src/command.dart';
 

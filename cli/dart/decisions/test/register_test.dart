@@ -28,11 +28,11 @@ void main() {
     });
 
     test('optional authored identities default to null', () {
-      // docket-triggers is the one self-hosted entry minted from a bead
-      // (dec-iut); every other identity stays null.
       final beads = {for (final entry in entries) entry.slug: entry.bead};
       expect(beads['docket-triggers'], 'dec-iut');
+      expect(beads['lexical-precedent-search'], 'dec-5q9');
       beads.remove('docket-triggers');
+      beads.remove('lexical-precedent-search');
       expect(beads.values, everyElement(isNull));
       expect(entries.map((entry) => entry.legacyId), everyElement(isNull));
     });
@@ -49,6 +49,7 @@ void main() {
           'entry-identity',
           'spec-and-artifact-versioning',
           'docket-triggers',
+          'lexical-precedent-search',
         ]),
       );
     });

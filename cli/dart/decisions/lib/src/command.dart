@@ -3,23 +3,43 @@ import 'dart:io';
 
 import 'package:args/command_runner.dart';
 
+import 'index_command.dart';
 import 'legacy.dart';
 import 'lint.dart';
 import 'mutation.dart';
+import 'search_command.dart';
 
 /// Composable `decisions` command group.
 final class DecisionsCommand extends Command<int> {
-  /// Creates the group with injectable services and output sink.
+  /// Creates the group with injectable services, register resolver, and sinks.
   DecisionsCommand({
     DecisionLinter? linter,
     LegacyRegisterConverter? legacyConverter,
     DecisionMutator? mutator,
+    RegisterPathResolver? registerPaths,
     StringSink? output,
+    StringSink? error,
   }) {
     final resolvedLinter = linter ?? const DecisionLintService();
     final resolvedMutator =
         mutator ?? DecisionMutationService(linter: resolvedLinter);
     final resolvedOutput = output ?? stdout;
+    final resolvedError = error ?? stderr;
+    final resolvedRegisterPaths =
+        registerPaths ?? () => const <String>['docs/decisions'];
+    addSubcommand(
+      IndexCommand(
+        output: resolvedOutput,
+        registerPaths: resolvedRegisterPaths,
+      ),
+    );
+    addSubcommand(
+      DecisionSearchCommand(
+        registerPaths: resolvedRegisterPaths,
+        output: resolvedOutput,
+        error: resolvedError,
+      ),
+    );
     addSubcommand(_LintCommand(linter: resolvedLinter, output: resolvedOutput));
     addSubcommand(
       _MigrateLegacyCommand(

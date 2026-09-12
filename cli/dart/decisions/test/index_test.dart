@@ -74,6 +74,24 @@ void main() {
     );
   });
 
+  test('shared register union preserves index bytes and surface matching', () {
+    final paths = <String>[_sourceRegister, _otherRegister];
+    final direct = DecisionIndex.fromRegisterPaths(paths);
+    final shared = DecisionIndex.fromUnion(
+      DecisionRegisterUnion.fromRegisterPaths(paths),
+    );
+
+    expect(shared.toJson(), direct.toJson());
+    expect(
+      matchesDecisionSurface(
+        originRegister: 'source_repo',
+        surfaces: const <String>['lib/watcher/**'],
+        rosterRelativePath: 'source_repo/lib/watcher/service.dart',
+      ),
+      isTrue,
+    );
+  });
+
   test('does not mutate any register file', () {
     final before = _snapshot([_sourceRegister, _otherRegister]);
     final index = DecisionIndex.fromRegisterPaths([

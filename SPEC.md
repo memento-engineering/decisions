@@ -169,13 +169,45 @@ worth running and it is not sufficient: our layer is the graph. `decisions lint`
 `register` keys, edge integrity and reciprocity, force-cache consistency against the graph, slug
 uniqueness, that `surfaces` globs resolve, and that cross-repo citations resolve across the roster.
 
+## Search
+
+`decisions search <query...>` is the tier-1 precedent lookup. With no composed resolver it reads
+exactly `docs/decisions` from the caller's working directory. A tier-2 station composes the same
+reader over every existing `docs/decisions` directory in its live mounted roster; register
+resolution happens afresh once per invocation. An empty union is a loud non-answer.
+
+The reader uses the same tolerant parsed register union, spec-range checks and graphs as
+`decisions index`; search never defines a second Markdown or front-matter parser. A query is
+trimmed and split on whitespace. A decision matches when **any** term is a case-insensitive
+substring of its title, slug or body. The first matching field in that order wins. Title is the
+first level-one ATX heading; an entry without one is still searched by slug and body. Results have
+no relevance score and sort by register then slug.
+
+These filters apply after parsing and before lexical matching: repeatable status, decision-maker,
+slug, governed-surface, `obsoletes`, `updates`, `obsoleted-by` and `updated-by`; and single
+inclusive `date-from` and `date-through` bounds. Repeated values in one category are alternatives;
+distinct categories intersect. Decision-maker comparison is case-insensitive exact comparison.
+Slugs and authored or cached edge references compare exactly. Governed surfaces use the same
+roster-qualified glob matching as index.
+
+The status filter names force ergonomically without creating another force vocabulary:
+`accepted` selects raw `accepted`, `obsoleted` selects raw `superseded by <slug>`, `vacated`
+selects raw `deprecated`, and `rejected` selects raw `rejected`. Every hit preserves that raw MADR
+status.
+
+Human output is citation-ready. `--json` emits newline-delimited hit objects with no wrapper: one
+object per match, containing exactly `spec`, `slug`, `register`, `path`, `status`, `date`, `field`
+and `snippet`. The independent search-output schema is 1; it does not change decision-entry spec
+1. A snippet is one matching line capped at 160 characters, including any leading and trailing
+ellipses. Parse diagnostics remain visible separately from hits, including on a zero-hit result.
+
 ## Tiers
 
 | Tier | What you get | Needs |
 |---|---|---|
 | 0 — prose | the format, templates, a greppable register, the skills as plain markdown | nothing |
-| 1 — CLI | `decisions index / lint / render / obsolete / update / vacate`, JSON out | an ecosystem impl |
-| 2 — grid | overlay-installed skills, the committee lens, roster-wide cross-repo index, decision beads | a station |
+| 1 — CLI | `decisions index / search / lint / render / obsolete / update / vacate`, JSON out | an ecosystem impl |
+| 2 — grid | overlay-installed skills, the committee lens, roster-wide cross-repo index and search, decision beads | a station |
 
 Cross-repo union is a tier-2 property because it needs a live roster: a station enumerates its
 mounted substations at runtime. Backstage's ADR plugin is the only comparable thing in the

@@ -13,4 +13,7 @@ export 'src/index_command.dart';
 export 'src/legacy.dart';
 export 'src/lint.dart';
 export 'src/mutation.dart';
+export 'src/register_union.dart';
 export 'src/render.dart';
+export 'src/search.dart';
+export 'src/search_command.dart';

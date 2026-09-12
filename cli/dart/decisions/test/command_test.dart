@@ -83,6 +83,43 @@ final class FakeDecisionMutator implements DecisionMutator {
 }
 
 void main() {
+  test(
+    'decisions command installs index and search with one lazy resolver',
+    () async {
+      var calls = 0;
+      final output = StringBuffer();
+      final command = DecisionsCommand(
+        registerPaths: () {
+          calls++;
+          return const <String>[
+            'test/fixtures/search_registers/memento-engineering/docs/decisions',
+          ];
+        },
+        output: output,
+        error: StringBuffer(),
+      );
+      final runner = CommandRunner<int>('station', 'fixture')
+        ..addCommand(command);
+
+      expect(calls, 0);
+      expect(
+        command.subcommands.keys,
+        containsAll(<String>['index', 'search']),
+      );
+      expect(
+        await runner.run(<String>[
+          'decisions',
+          'search',
+          '--json',
+          'prerelease',
+        ]),
+        0,
+      );
+      expect(calls, 1);
+      expect(output.toString(), contains('memento-engineering'));
+    },
+  );
+
   test('json output validates against its schema', () async {
     final output = StringBuffer();
     final runner = CommandRunner<int>('station', 'fixture')

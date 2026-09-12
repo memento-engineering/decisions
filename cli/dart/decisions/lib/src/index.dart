@@ -1,18 +1,10 @@
-import 'package:glob/glob.dart';
 import 'package:json_annotation/json_annotation.dart';
-import 'package:path/path.dart' as p;
 
-import 'entry.dart';
 import 'graph.dart';
 import 'lint.dart';
+import 'register_union.dart';
 
 part 'index.g.dart';
-
-/// Lowest decision-entry spec this artifact reads.
-const decisionEntrySpecMinimum = 1;
-
-/// Highest decision-entry spec this artifact reads.
-const decisionEntrySpecMaximum = 1;
 
 /// JSON schema version emitted by [DecisionIndex.toJson].
 const decisionIndexOutputSpec = 2;
@@ -107,50 +99,19 @@ final class DecisionIndex {
 
   /// Reads [registerPaths] and resolves their authored graphs into one union.
   factory DecisionIndex.fromRegisterPaths(Iterable<String> registerPaths) {
-    final paths = registerPaths.map(p.normalize).toList(growable: false);
-    if (paths.isEmpty) {
-      throw const DecisionIndexException(
-        'at least one register directory is required',
+    try {
+      return DecisionIndex.fromUnion(
+        DecisionRegisterUnion.fromRegisterPaths(registerPaths),
       );
+    } on DecisionRegisterUnionException catch (error) {
+      throw DecisionIndexException(error.message);
     }
+  }
 
-    final diagnostics = <DecisionLintDiagnostic>[];
-    final registers = <String, _LoadedRegister>{};
-    for (final path in paths) {
-      final name = _originRegister(path);
-      final previous = registers[name];
-      if (previous != null) {
-        throw DecisionIndexException(
-          'duplicate origin register "$name" for '
-          '"${previous.path}" and "$path"',
-        );
-      }
-
-      final entries = readRegister(
-        path,
-        onParseError: (error) {
-          diagnostics.add(DecisionLintDiagnostic.fromParseException(error));
-        },
-      );
-      for (final entry in entries) {
-        if (entry.spec < decisionEntrySpecMinimum ||
-            entry.spec > decisionEntrySpecMaximum) {
-          throw DecisionIndexException(
-            '"${entry.file}" declares unsupported decision spec ${entry.spec}; '
-            'supported range is $decisionEntrySpecMinimum through '
-            '$decisionEntrySpecMaximum',
-          );
-        }
-      }
-      registers[name] = _LoadedRegister(
-        name: name,
-        path: path,
-        graph: DecisionGraph(entries),
-      );
-    }
-
+  /// Projects a previously parsed [union] into index schema 2.
+  factory DecisionIndex.fromUnion(DecisionRegisterUnion union) {
     final decisions = <IndexedDecision>[];
-    for (final register in registers.values) {
+    for (final register in union.registers) {
       for (final entry in register.graph.entries.values) {
         final edges = <IndexedDecisionEdge>[
           for (final edge in register.graph.outgoingFrom(entry.slug))
@@ -158,17 +119,17 @@ final class DecisionIndex {
               kind: edge.kind,
               reference: edge.targetReference,
               resolution: DecisionIndexEdgeResolution.resolved,
-              targetRegister: register.name,
+              targetRegister: register.originRegister,
               targetSlug: edge.target.slug,
             ),
           for (final edge in register.graph.pendingFrom(entry.slug))
-            _resolvePending(edge, registers),
+            _resolvePending(edge, union),
         ]..sort(_compareEdges);
 
         decisions.add(
           IndexedDecision(
-            originRegister: register.name,
-            originPath: register.path,
+            originRegister: register.originRegister,
+            originPath: register.originPath,
             slug: entry.slug,
             status: entry.status,
             surfaces: entry.surfaces,
@@ -183,8 +144,10 @@ final class DecisionIndex {
           ? registerOrder
           : left.slug.compareTo(right.slug);
     });
-    diagnostics.sort(DecisionLintDiagnostic.compare);
-    return DecisionIndex._(decisions: decisions, diagnostics: diagnostics);
+    return DecisionIndex._(
+      decisions: decisions,
+      diagnostics: union.diagnostics,
+    );
   }
 
   /// Output schema version.
@@ -198,19 +161,14 @@ final class DecisionIndex {
 
   /// Returns only decisions governing [rosterRelativePath].
   DecisionIndex governing(String rosterRelativePath) {
-    final normalized = p.posix.normalize(
-      rosterRelativePath.replaceAll('\\', '/'),
-    );
     return DecisionIndex._(
       decisions: decisions
           .where((decision) {
-            return decision.surfaces.any((surface) {
-              final normalizedSurface = surface.replaceAll('\\', '/');
-              final pattern = normalizedSurface.startsWith('*/')
-                  ? normalizedSurface
-                  : '${decision.originRegister}/$normalizedSurface';
-              return Glob(pattern, context: p.posix).matches(normalized);
-            });
+            return matchesDecisionSurface(
+              originRegister: decision.originRegister,
+              surfaces: decision.surfaces,
+              rosterRelativePath: rosterRelativePath,
+            );
           })
           .toList(growable: false),
       diagnostics: diagnostics,
@@ -222,7 +180,7 @@ final class DecisionIndex {
 
   static IndexedDecisionEdge _resolvePending(
     PendingDecisionEdge edge,
-    Map<String, _LoadedRegister> registers,
+    DecisionRegisterUnion union,
   ) {
     final separator = edge.targetReference.indexOf('#');
     if (separator <= 0 || separator == edge.targetReference.length - 1) {
@@ -235,9 +193,10 @@ final class DecisionIndex {
 
     final targetRegisterName = edge.targetReference.substring(0, separator);
     final targetReference = edge.targetReference.substring(separator + 1);
-    final target = registers[targetRegisterName]?.graph.findEntry(
-      targetReference,
-    );
+    final target = union
+        .findRegister(targetRegisterName)
+        ?.graph
+        .findEntry(targetReference);
     return target == null
         ? IndexedDecisionEdge(
             kind: edge.kind,
@@ -269,27 +228,6 @@ final class DecisionIndex {
     DecisionEdgeKind.obsoletes => 0,
     DecisionEdgeKind.updates => 1,
   };
-
-  static String _originRegister(String registerPath) {
-    final parts = p.split(p.normalize(registerPath));
-    if (parts.length >= 3 &&
-        parts.last == 'decisions' &&
-        parts[parts.length - 2] == 'docs') {
-      if (parts.length >= 6 &&
-          parts[parts.length - 6] == '.grid' &&
-          parts[parts.length - 5] == 'worktrees') {
-        return parts[parts.length - 4];
-      }
-      return parts[parts.length - 3];
-    }
-    final name = p.basename(p.normalize(registerPath));
-    if (name.isEmpty || name == p.separator) {
-      throw DecisionIndexException(
-        'cannot infer an origin register from "$registerPath"',
-      );
-    }
-    return name;
-  }
 }
 
 /// Thrown when register inputs cannot form a deterministic index.
@@ -302,16 +240,4 @@ class DecisionIndexException implements Exception {
 
   @override
   String toString() => 'DecisionIndexException: $message';
-}
-
-final class _LoadedRegister {
-  const _LoadedRegister({
-    required this.name,
-    required this.path,
-    required this.graph,
-  });
-
-  final String name;
-  final String path;
-  final DecisionGraph graph;
 }

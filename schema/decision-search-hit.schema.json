@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/memento-engineering/decisions/schema/decision-search-hit.schema.json",
+  "title": "decisions search hit (schema 1)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "spec",
+    "slug",
+    "register",
+    "path",
+    "status",
+    "date",
+    "field",
+    "snippet"
+  ],
+  "properties": {
+    "spec": { "const": 1 },
+    "slug": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+    },
+    "register": {
+      "type": "string",
+      "pattern": "^[a-z0-9_.-]+$"
+    },
+    "path": { "type": "string", "minLength": 1 },
+    "status": {
+      "oneOf": [
+        { "enum": ["accepted", "deprecated", "rejected"] },
+        {
+          "type": "string",
+          "pattern": "^superseded by [a-z0-9]+(-[a-z0-9]+)*$"
+        }
+      ]
+    },
+    "date": {
+      "type": "string",
+      "format": "date",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    },
+    "field": { "enum": ["title", "slug", "body"] },
+    "snippet": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160,
+      "pattern": "^[^\\r\\n]*$"
+    }
+  }
+}
