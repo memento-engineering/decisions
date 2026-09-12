@@ -13,7 +13,12 @@ register:
   obsoletes: []
   updates: []
   obsoleted-by: null
-  updated-by: [madr-profile, entry-identity, spec-and-artifact-versioning, docket-triggers]
+  updated-by:
+    - docket-triggers
+    - entry-identity
+    - lexical-precedent-search
+    - madr-profile
+    - spec-and-artifact-versioning
   bead: null
   legacy-id: null
 ---

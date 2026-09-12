@@ -14,27 +14,28 @@ bool _directoryExists(String path) => Directory(path).existsSync();
 /// Builds the composable `decisions` command group for a station runner.
 ///
 /// The station provides [mountedSubstationRoots] from its resident tree. Each
-/// `decisions index` run reads that callback afresh, selects existing
-/// `docs/decisions` directories, and delegates the union to the agnostic
-/// decisions engine.
+/// `decisions index` or `decisions search` run reads that callback afresh,
+/// selects existing `docs/decisions` directories, and delegates the union to
+/// the agnostic decisions engine.
 DecisionsCommand buildDecisionsCommand({
   required MountedSubstationRoots mountedSubstationRoots,
   RegisterDirectoryExists? registerExists,
   DecisionLinter? linter,
   StringSink? output,
+  StringSink? error,
 }) {
   final exists = registerExists ?? _directoryExists;
-  final command = DecisionsCommand(linter: linter, output: output);
-  command.addSubcommand(
-    IndexCommand(
-      output: output,
-      registerPaths: () sync* {
-        for (final root in mountedSubstationRoots()) {
-          final registerPath = p.normalize(p.join(root, 'docs', 'decisions'));
-          if (exists(registerPath)) yield registerPath;
-        }
-      },
-    ),
+  Iterable<String> registerPaths() sync* {
+    for (final root in mountedSubstationRoots()) {
+      final registerPath = p.normalize(p.join(root, 'docs', 'decisions'));
+      if (exists(registerPath)) yield registerPath;
+    }
+  }
+
+  return DecisionsCommand(
+    linter: linter,
+    registerPaths: registerPaths,
+    output: output,
+    error: error,
   );
-  return command;
 }
