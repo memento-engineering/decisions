@@ -74,6 +74,28 @@ void main() {
     },
   );
 
+  test('roster-wide exemption matches only marked unmatched surfaces', () {
+    const marked = DecisionLintDiagnostic(
+      ruleId: DecisionLintRules.surfaceUnmatched,
+      file: 'docs/decisions/marked.md',
+      message: 'surface "roster:CLAUDE.md" matched no filesystem entry',
+    );
+    const unmarked = DecisionLintDiagnostic(
+      ruleId: DecisionLintRules.surfaceUnmatched,
+      file: 'docs/decisions/unmarked.md',
+      message: 'surface "CLAUDE.md" matched no filesystem entry',
+    );
+    const differentRule = DecisionLintDiagnostic(
+      ruleId: DecisionLintRules.entrySchema,
+      file: 'docs/decisions/schema.md',
+      message: 'surface "roster:CLAUDE.md" matched no filesystem entry',
+    );
+
+    expect(isRosterWideSurfaceUnmatched(marked), isTrue);
+    expect(isRosterWideSurfaceUnmatched(unmarked), isFalse);
+    expect(isRosterWideSurfaceUnmatched(differentRule), isFalse);
+  });
+
   test('deprecated updated target is lint-clean', () {
     final sandbox = Directory.systemTemp.createTempSync('decision-lint-force-');
     try {

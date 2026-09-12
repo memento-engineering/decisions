@@ -262,13 +262,14 @@ final class DecisionMutationService implements DecisionMutator {
         registerPath: candidateRegister.path,
         repoRoot: repoRoot,
       );
-      if (!result.isClean) {
-        final violations =
-            result.diagnostics
-                .map((diagnostic) => diagnostic.ruleId)
-                .toSet()
-                .toList()
-              ..sort();
+      final violations =
+          result.diagnostics
+              .where((diagnostic) => !isRosterWideSurfaceUnmatched(diagnostic))
+              .map((diagnostic) => diagnostic.ruleId)
+              .toSet()
+              .toList()
+            ..sort();
+      if (violations.isNotEmpty) {
         throw DecisionMutationException(
           'candidate register is not clean: ${violations.join(', ')}',
         );

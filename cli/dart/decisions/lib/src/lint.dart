@@ -78,6 +78,15 @@ final class DecisionLintDiagnostic {
   };
 }
 
+/// Whether [diagnostic] is an unmatched roster-wide surface.
+///
+/// Roster-aware consumers may exempt `roster:<path>` surfaces that are
+/// intentionally unresolved in a single checkout while retaining every other
+/// lint diagnostic.
+bool isRosterWideSurfaceUnmatched(DecisionLintDiagnostic diagnostic) =>
+    diagnostic.ruleId == DecisionLintRules.surfaceUnmatched &&
+    diagnostic.message.startsWith('surface "roster:');
+
 /// Complete lint result for one register.
 final class DecisionLintResult {
   DecisionLintResult({
