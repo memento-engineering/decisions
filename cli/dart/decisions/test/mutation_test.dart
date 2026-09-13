@@ -323,7 +323,7 @@ void main() {
               'docs/decisions/2026-01-01-base-rule.md '
               '[surface.unmatched]; '
               'docs/decisions/2026-01-02-amendment.md '
-              '[force.updated-by, surface.unmatched]',
+              '[surface.unmatched]',
         ),
       ),
     );
@@ -465,6 +465,100 @@ void main() {
       repoRoot: sandbox.path,
     );
     expect(result.isClean, isTrue, reason: '${result.toJson()}');
+  });
+
+  test('sequential updates settle a chained dirty backlog', () {
+    final (:alpha, :beta, :gamma) = _writeChainedBacklog(register);
+    expect(
+      linter
+          .lint(registerPath: register.path, repoRoot: sandbox.path)
+          .diagnostics
+          .where(
+            (diagnostic) =>
+                diagnostic.ruleId == DecisionLintRules.forceUpdatedBy,
+          ),
+      hasLength(3),
+    );
+
+    for (final (target, successor) in [
+      ('alpha', 'beta'),
+      ('beta', 'gamma'),
+      ('gamma', 'alpha'),
+    ]) {
+      service.update(
+        registerPath: register.path,
+        repoRoot: sandbox.path,
+        target: target,
+        successor: successor,
+      );
+    }
+
+    expect(parseEntry(alpha.path).cachedUpdatedBy, orderedEquals(['beta']));
+    expect(parseEntry(beta.path).cachedUpdatedBy, orderedEquals(['gamma']));
+    expect(parseEntry(gamma.path).cachedUpdatedBy, orderedEquals(['alpha']));
+    final result = linter.lint(
+      registerPath: register.path,
+      repoRoot: sandbox.path,
+    );
+    expect(result.isClean, isTrue, reason: '${result.toJson()}');
+  });
+
+  test('successor force.updated-by exemption retains other successor '
+      'diagnostics', () {
+    final (:alpha, :beta, :gamma) = _writeChainedBacklog(
+      register,
+      betaSurface: 'missing-successor/**',
+    );
+    final alphaBefore = alpha.readAsBytesSync();
+    final betaBefore = beta.readAsBytesSync();
+    final gammaBefore = gamma.readAsBytesSync();
+
+    expect(
+      () => service.update(
+        registerPath: register.path,
+        repoRoot: sandbox.path,
+        target: 'alpha',
+        successor: 'beta',
+      ),
+      throwsA(
+        isA<DecisionMutationException>().having(
+          (error) => error.message,
+          'message',
+          'candidate register is not clean: '
+              'docs/decisions/2026-01-02-beta.md [surface.unmatched]',
+        ),
+      ),
+    );
+    expect(alpha.readAsBytesSync(), orderedEquals(alphaBefore));
+    expect(beta.readAsBytesSync(), orderedEquals(betaBefore));
+    expect(gamma.readAsBytesSync(), orderedEquals(gammaBefore));
+  });
+
+  test('successor force.updated-by exemption never applies to target', () {
+    final (:alpha, :beta, :gamma) = _writeChainedBacklog(register);
+    final alphaBefore = alpha.readAsBytesSync();
+    final betaBefore = beta.readAsBytesSync();
+    final gammaBefore = gamma.readAsBytesSync();
+
+    expect(
+      () => service.vacate(
+        registerPath: register.path,
+        repoRoot: sandbox.path,
+        target: 'alpha',
+        successor: 'beta',
+      ),
+      throwsA(
+        isA<DecisionMutationException>().having(
+          (error) => error.message,
+          'message',
+          'candidate register is not clean: '
+              'docs/decisions/2026-01-01-alpha.md [force.updated-by]',
+        ),
+      ),
+    );
+    expect(alpha.readAsBytesSync(), orderedEquals(alphaBefore));
+    expect(beta.readAsBytesSync(), orderedEquals(betaBefore));
+    expect(gamma.readAsBytesSync(), orderedEquals(gammaBefore));
   });
 
   test('lint keeps reporting unrelated diagnostics after mutation', () {
@@ -677,6 +771,32 @@ void main() {
     );
     expect(target.readAsBytesSync(), orderedEquals(before));
   });
+}
+
+({File alpha, File beta, File gamma}) _writeChainedBacklog(
+  Directory register, {
+  String betaSurface = 'lib/**',
+}) {
+  final alpha = _writeEntry(
+    register,
+    day: 1,
+    slug: 'alpha',
+    updates: const ['gamma'],
+  );
+  final beta = _writeEntry(
+    register,
+    day: 2,
+    slug: 'beta',
+    updates: const ['alpha'],
+    surface: betaSurface,
+  );
+  final gamma = _writeEntry(
+    register,
+    day: 3,
+    slug: 'gamma',
+    updates: const ['beta'],
+  );
+  return (alpha: alpha, beta: beta, gamma: gamma);
 }
 
 File _writeEntry(

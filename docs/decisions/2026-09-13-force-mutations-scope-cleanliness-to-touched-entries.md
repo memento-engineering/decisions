@@ -16,7 +16,8 @@ register:
   updates:
     - the-decision-register
   obsoleted-by: null
-  updated-by: []
+  updated-by:
+    - successor-updated-by-dirt-does-not-block-force-mutation
   bead: dec-3g7
   legacy-id: null
 ---

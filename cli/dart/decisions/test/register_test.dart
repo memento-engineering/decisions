@@ -35,9 +35,14 @@ void main() {
         beads['force-mutations-scope-cleanliness-to-touched-entries'],
         'dec-3g7',
       );
+      expect(
+        beads['successor-updated-by-dirt-does-not-block-force-mutation'],
+        'dec-o67',
+      );
       beads.remove('docket-triggers');
       beads.remove('lexical-precedent-search');
       beads.remove('force-mutations-scope-cleanliness-to-touched-entries');
+      beads.remove('successor-updated-by-dirt-does-not-block-force-mutation');
       expect(beads.values, everyElement(isNull));
       expect(entries.map((entry) => entry.legacyId), everyElement(isNull));
     });
