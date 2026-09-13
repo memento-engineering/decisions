@@ -98,6 +98,7 @@ final class DecisionMutationService implements DecisionMutator {
       registerPath: registerPath,
       repoRoot: repoRoot,
       target: context.target,
+      successor: context.successor,
       candidate: candidate,
     );
   }
@@ -133,6 +134,7 @@ final class DecisionMutationService implements DecisionMutator {
       registerPath: registerPath,
       repoRoot: repoRoot,
       target: context.target,
+      successor: context.successor,
       candidate: candidate,
     );
   }
@@ -159,6 +161,7 @@ final class DecisionMutationService implements DecisionMutator {
       registerPath: registerPath,
       repoRoot: repoRoot,
       target: context.target,
+      successor: context.successor,
       candidate: candidate,
     );
   }
@@ -234,12 +237,19 @@ final class DecisionMutationService implements DecisionMutator {
     required String registerPath,
     required String repoRoot,
     required DecisionEntry target,
+    required DecisionEntry successor,
     required String candidate,
   }) {
     final candidateRegister = Directory.systemTemp.createTempSync(
       'decisions-mutation-',
     );
     try {
+      final root = p.normalize(p.absolute(repoRoot));
+      final touchedSourcePaths = {
+        p.normalize(p.absolute(target.file)),
+        p.normalize(p.absolute(successor.file)),
+      };
+      final touchedCandidatePaths = <String, String>{};
       final entryFiles =
           Directory(registerPath)
               .listSync()
@@ -251,10 +261,18 @@ final class DecisionMutationService implements DecisionMutator {
         final copy = File(
           p.join(candidateRegister.path, p.basename(entryFile.path)),
         );
-        if (p.equals(p.normalize(entryFile.path), p.normalize(target.file))) {
+        final sourcePath = p.normalize(p.absolute(entryFile.path));
+        if (p.equals(sourcePath, p.normalize(p.absolute(target.file)))) {
           copy.writeAsStringSync(candidate, flush: true);
         } else {
           entryFile.copySync(copy.path);
+        }
+        if (touchedSourcePaths.contains(sourcePath)) {
+          touchedCandidatePaths[p.normalize(
+            p.relative(p.absolute(copy.path), from: root),
+          )] = p.normalize(
+            p.relative(sourcePath, from: root),
+          );
         }
       }
 
@@ -262,16 +280,26 @@ final class DecisionMutationService implements DecisionMutator {
         registerPath: candidateRegister.path,
         repoRoot: repoRoot,
       );
-      final violations =
-          result.diagnostics
-              .where((diagnostic) => !isRosterWideSurfaceUnmatched(diagnostic))
-              .map((diagnostic) => diagnostic.ruleId)
-              .toSet()
-              .toList()
-            ..sort();
+      final violations = <String, Set<String>>{};
+      for (final diagnostic in result.diagnostics) {
+        if (isRosterWideSurfaceUnmatched(diagnostic)) continue;
+        final originalPath =
+            touchedCandidatePaths[p.normalize(diagnostic.file)];
+        if (originalPath == null) continue;
+        violations
+            .putIfAbsent(originalPath, () => <String>{})
+            .add(diagnostic.ruleId);
+      }
       if (violations.isNotEmpty) {
+        final paths = violations.keys.toList()..sort();
+        final summary = paths
+            .map((path) {
+              final rules = violations[path]!.toList()..sort();
+              return '$path [${rules.join(', ')}]';
+            })
+            .join('; ');
         throw DecisionMutationException(
-          'candidate register is not clean: ${violations.join(', ')}',
+          'candidate register is not clean: $summary',
         );
       }
       File(target.file).writeAsStringSync(candidate, flush: true);
