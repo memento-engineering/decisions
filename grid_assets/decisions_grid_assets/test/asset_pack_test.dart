@@ -268,6 +268,8 @@ void main() {
     addTearDown(() => temp.deleteSync(recursive: true));
     File(p.join(temp.path, 'pubspec.yaml')).writeAsStringSync(
       'name: stale_fixture\n'
+      'environment:\n'
+      '  sdk: ^3.11.0\n'
       'grid:\n'
       '  assets: []\n',
     );
