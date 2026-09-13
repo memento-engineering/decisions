@@ -249,7 +249,9 @@ final class DecisionMutationService implements DecisionMutator {
         p.normalize(p.absolute(target.file)),
         p.normalize(p.absolute(successor.file)),
       };
+      final successorSourcePath = p.normalize(p.absolute(successor.file));
       final touchedCandidatePaths = <String, String>{};
+      String? successorCandidatePath;
       final entryFiles =
           Directory(registerPath)
               .listSync()
@@ -268,11 +270,15 @@ final class DecisionMutationService implements DecisionMutator {
           entryFile.copySync(copy.path);
         }
         if (touchedSourcePaths.contains(sourcePath)) {
-          touchedCandidatePaths[p.normalize(
+          final candidatePath = p.normalize(
             p.relative(p.absolute(copy.path), from: root),
-          )] = p.normalize(
+          );
+          touchedCandidatePaths[candidatePath] = p.normalize(
             p.relative(sourcePath, from: root),
           );
+          if (p.equals(sourcePath, successorSourcePath)) {
+            successorCandidatePath = candidatePath;
+          }
         }
       }
 
@@ -283,8 +289,12 @@ final class DecisionMutationService implements DecisionMutator {
       final violations = <String, Set<String>>{};
       for (final diagnostic in result.diagnostics) {
         if (isRosterWideSurfaceUnmatched(diagnostic)) continue;
-        final originalPath =
-            touchedCandidatePaths[p.normalize(diagnostic.file)];
+        final diagnosticPath = p.normalize(diagnostic.file);
+        if (diagnosticPath == successorCandidatePath &&
+            diagnostic.ruleId == DecisionLintRules.forceUpdatedBy) {
+          continue;
+        }
+        final originalPath = touchedCandidatePaths[diagnosticPath];
         if (originalPath == null) continue;
         violations
             .putIfAbsent(originalPath, () => <String>{})
