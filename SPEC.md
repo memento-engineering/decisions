@@ -88,7 +88,7 @@ invent content for it.**
 | force | `status` |
 |---|---|
 | binding | `accepted` |
-| superseded | `superseded by <slug>` |
+| superseded | `superseded by <slug>`, or `superseded by <repo>#<slug>` |
 | vacated | `deprecated` |
 | rejected | `rejected` |
 
@@ -116,6 +116,17 @@ put it in.
 purely from the graph would be cleaner, but a grepper opening a 2026 entry would read
 `status: accepted` with no way to know it was overruled — fatal for tier 0. So the back-edges are
 denormalized, and `decisions lint` is what keeps them honest.
+
+**Edges cross registers.** An authored `obsoletes` or `updates` entry, a cached `obsoleted-by` or
+`updated-by` entry, and the source named in a `superseded by` status are each a slug or the
+`<repo>#<slug>` citation handle. The graph therefore does not stop at the directory boundary: a
+decision recorded in the org register can obsolete or amend one in a repo's own register, and the
+force cache on the target records it in the same block as a local one.
+
+Checking a cross-register edge needs a roster — the sibling registers this checkout can see. A
+register the roster does not carry is **unresolvable, not wrong**: the cached value is exempt and
+the operator is told nothing, because a single checkout legitimately sees one side of a graph that
+spans several. Only a register the roster does carry is checked, and then strictly.
 
 This also bounds migration cost permanently: a spec bump can touch the cached block, never the
 prose.
@@ -168,6 +179,13 @@ breaking spec bump ships its migration tool in the same release.
 worth running and it is not sufficient: our layer is the graph. `decisions lint` checks required
 `register` keys, edge integrity and reciprocity, force-cache consistency against the graph, slug
 uniqueness, that `surfaces` globs resolve, and that cross-repo citations resolve across the roster.
+
+The roster comes from repeatable `--roster <register-path>` options, and otherwise from whatever
+register resolver the caller composed — the live mounted roster at tier 2, and the register in the
+working directory at tier 1. `decisions obsolete`, `update` and `vacate` read the same roster and
+accept the same `<repo>#<slug>` successor: `decisions update <target> --by <repo>#<slug>` writes
+that qualified reference into the target's cache, and refuses when the roster holds no such entry
+or that entry authors no matching edge back.
 
 ## Search
 

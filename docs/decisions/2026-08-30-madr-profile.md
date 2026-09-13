@@ -14,7 +14,8 @@ register:
   obsoletes: []
   updates: [the-decision-register]
   obsoleted-by: null
-  updated-by: []
+  updated-by:
+    - cross-register-force-edges
   bead: null
   legacy-id: null
 ---
