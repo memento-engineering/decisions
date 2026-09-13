@@ -165,11 +165,17 @@ transiently dirty by exactly the target's `force.*` rules; that is why they are
 one act. Do not stop at `decide`'s closing lint until the paired force command
 has run.
 
-The force commands refuse to write while the register is dirty ANYWHERE else,
-reporting `candidate register is not clean: <rules>` and changing no file. That
-guard is why signal 2 fires on the FIRST pending request. If a docket finds more
-than one unsettled request, report the refusal verbatim together with every
-outstanding request and stop; never hand-edit a force cache to get past it.
+Every force command lints the full candidate register exactly once, but refuses
+only non-exempt diagnostics on the entries the operation touches: its target or
+successor. A refusal names each dirty touched entry by its original
+repo-root-relative path and sorted rule ids:
+`candidate register is not clean: <path> [<rule, ...>]; <path> [<rule, ...>]`.
+Unrelated lint findings remain in place and do not block the operation.
+
+The target slug is positional. `obsolete` and `update` take the successor with
+`--by`; `vacate` takes it with `--successor`. When a docket has multiple authored
+force requests, apply them one row at a time in the order above, then lint after
+the final row. Never hand-edit a force cache to settle a row.
 
 ### 6. Record the docket's own entry, last, and validate
 

@@ -16,6 +16,7 @@ register:
   updated-by:
     - docket-triggers
     - entry-identity
+    - force-mutations-scope-cleanliness-to-touched-entries
     - lexical-precedent-search
     - madr-profile
     - spec-and-artifact-versioning

@@ -31,8 +31,13 @@ void main() {
       final beads = {for (final entry in entries) entry.slug: entry.bead};
       expect(beads['docket-triggers'], 'dec-iut');
       expect(beads['lexical-precedent-search'], 'dec-5q9');
+      expect(
+        beads['force-mutations-scope-cleanliness-to-touched-entries'],
+        'dec-3g7',
+      );
       beads.remove('docket-triggers');
       beads.remove('lexical-precedent-search');
+      beads.remove('force-mutations-scope-cleanliness-to-touched-entries');
       expect(beads.values, everyElement(isNull));
       expect(entries.map((entry) => entry.legacyId), everyElement(isNull));
     });
@@ -50,6 +55,7 @@ void main() {
           'spec-and-artifact-versioning',
           'docket-triggers',
           'lexical-precedent-search',
+          'force-mutations-scope-cleanliness-to-touched-entries',
         ]),
       );
     });

@@ -16,6 +16,9 @@ void main() {
     sandbox = Directory.systemTemp.createTempSync('decision-mutation-test-');
     register = Directory(p.join(sandbox.path, 'docs', 'decisions'))
       ..createSync(recursive: true);
+    File(p.join(sandbox.path, 'lib', 'fixture.dart'))
+      ..createSync(recursive: true)
+      ..writeAsStringSync('final class Fixture {}\n');
   });
 
   tearDown(() {
@@ -190,42 +193,334 @@ void main() {
     );
   });
 
-  test(
-    'non-roster unmatched surfaces still reject mutation without writing',
-    () {
-      final target = _writeEntry(
-        register,
-        day: 1,
-        slug: 'base-rule',
-        surface: 'missing/**',
-      );
-      _writeEntry(
-        register,
-        day: 2,
-        slug: 'amendment',
-        surface: 'missing/**',
-        updates: const ['base-rule'],
-      );
-      final before = target.readAsBytesSync();
+  test('update refuses a dirty touched target without writing', () {
+    final target = _writeEntry(
+      register,
+      day: 1,
+      slug: 'base-rule',
+      surface: 'missing/**',
+    );
+    final successor = _writeEntry(
+      register,
+      day: 2,
+      slug: 'amendment',
+      updates: const ['base-rule'],
+    );
+    final targetBefore = target.readAsBytesSync();
+    final successorBefore = successor.readAsBytesSync();
 
-      expect(
-        () => service.update(
-          registerPath: register.path,
-          repoRoot: sandbox.path,
-          target: 'base-rule',
-          successor: 'amendment',
+    expect(
+      () => service.update(
+        registerPath: register.path,
+        repoRoot: sandbox.path,
+        target: 'base-rule',
+        successor: 'amendment',
+      ),
+      throwsA(
+        isA<DecisionMutationException>().having(
+          (error) => error.message,
+          'message',
+          'candidate register is not clean: '
+              'docs/decisions/2026-01-01-base-rule.md '
+              '[surface.unmatched]',
         ),
-        throwsA(
-          isA<DecisionMutationException>().having(
-            (error) => error.message,
-            'message',
-            'candidate register is not clean: surface.unmatched',
+      ),
+    );
+    expect(target.readAsBytesSync(), orderedEquals(targetBefore));
+    expect(successor.readAsBytesSync(), orderedEquals(successorBefore));
+  });
+
+  test('update ignores diagnostics on unrelated entries', () {
+    final target = _writeEntry(register, day: 1, slug: 'base-rule');
+    final successor = _writeEntry(
+      register,
+      day: 2,
+      slug: 'amendment',
+      updates: const ['base-rule'],
+    );
+    final unrelated = _writeEntry(
+      register,
+      day: 3,
+      slug: 'unrelated-rule',
+      surface: 'missing/**',
+    );
+    final unrelatedSuccessor = _writeEntry(
+      register,
+      day: 4,
+      slug: 'unrelated-amendment',
+      surface: 'missing/**',
+      updates: const ['unrelated-rule'],
+    );
+    final successorBefore = successor.readAsBytesSync();
+    final unrelatedBefore = unrelated.readAsBytesSync();
+    final unrelatedSuccessorBefore = unrelatedSuccessor.readAsBytesSync();
+
+    service.update(
+      registerPath: register.path,
+      repoRoot: sandbox.path,
+      target: 'base-rule',
+      successor: 'amendment',
+    );
+
+    expect(
+      parseEntry(target.path).cachedUpdatedBy,
+      orderedEquals(['amendment']),
+    );
+    expect(successor.readAsBytesSync(), orderedEquals(successorBefore));
+    expect(unrelated.readAsBytesSync(), orderedEquals(unrelatedBefore));
+    expect(
+      unrelatedSuccessor.readAsBytesSync(),
+      orderedEquals(unrelatedSuccessorBefore),
+    );
+    final remaining = linter.lint(
+      registerPath: register.path,
+      repoRoot: sandbox.path,
+    );
+    expect(
+      remaining.diagnostics.map((diagnostic) => diagnostic.ruleId).toSet(),
+      containsAll({
+        DecisionLintRules.forceUpdatedBy,
+        DecisionLintRules.surfaceUnmatched,
+      }),
+    );
+  });
+
+  test('refusal names each dirty touched entry path', () {
+    final target = _writeEntry(
+      register,
+      day: 1,
+      slug: 'base-rule',
+      surface: 'missing-target/**',
+    );
+    final successor = _writeEntry(
+      register,
+      day: 2,
+      slug: 'amendment',
+      surface: 'missing-successor/**',
+      updates: const ['base-rule'],
+    );
+    _writeEntry(
+      register,
+      day: 3,
+      slug: 'amendment-two',
+      updates: const ['amendment'],
+    );
+    final targetBefore = target.readAsBytesSync();
+    final successorBefore = successor.readAsBytesSync();
+
+    expect(
+      () => service.update(
+        registerPath: register.path,
+        repoRoot: sandbox.path,
+        target: 'base-rule',
+        successor: 'amendment',
+      ),
+      throwsA(
+        isA<DecisionMutationException>().having(
+          (error) => error.message,
+          'message',
+          'candidate register is not clean: '
+              'docs/decisions/2026-01-01-base-rule.md '
+              '[surface.unmatched]; '
+              'docs/decisions/2026-01-02-amendment.md '
+              '[force.updated-by, surface.unmatched]',
+        ),
+      ),
+    );
+    expect(target.readAsBytesSync(), orderedEquals(targetBefore));
+    expect(successor.readAsBytesSync(), orderedEquals(successorBefore));
+  });
+
+  test('obsolete ignores diagnostics on unrelated entries', () {
+    final target = _writeEntry(register, day: 1, slug: 'old-rule');
+    final successor = _writeEntry(
+      register,
+      day: 2,
+      slug: 'replacement',
+      obsoletes: const ['old-rule'],
+    );
+    final unrelated = _writeEntry(
+      register,
+      day: 3,
+      slug: 'unrelated-rule',
+      surface: 'missing/**',
+    );
+    _writeEntry(
+      register,
+      day: 4,
+      slug: 'unrelated-amendment',
+      surface: 'missing/**',
+      updates: const ['unrelated-rule'],
+    );
+    final successorBefore = successor.readAsBytesSync();
+    final unrelatedBefore = unrelated.readAsBytesSync();
+
+    service.obsolete(
+      registerPath: register.path,
+      repoRoot: sandbox.path,
+      target: 'old-rule',
+      successor: 'replacement',
+    );
+
+    final changed = parseEntry(target.path);
+    expect(changed.status, 'superseded by replacement');
+    expect(changed.cachedObsoletedBy, 'replacement');
+    expect(successor.readAsBytesSync(), orderedEquals(successorBefore));
+    expect(unrelated.readAsBytesSync(), orderedEquals(unrelatedBefore));
+  });
+
+  test('vacate ignores diagnostics on unrelated entries', () {
+    final target = _writeEntry(register, day: 1, slug: 'withdrawn-rule');
+    final successor = _writeEntry(register, day: 2, slug: 'no-rule-governs');
+    final unrelated = _writeEntry(
+      register,
+      day: 3,
+      slug: 'unrelated-rule',
+      surface: 'missing/**',
+    );
+    _writeEntry(
+      register,
+      day: 4,
+      slug: 'unrelated-amendment',
+      surface: 'missing/**',
+      updates: const ['unrelated-rule'],
+    );
+    final successorBefore = successor.readAsBytesSync();
+    final unrelatedBefore = unrelated.readAsBytesSync();
+
+    service.vacate(
+      registerPath: register.path,
+      repoRoot: sandbox.path,
+      target: 'withdrawn-rule',
+      successor: 'no-rule-governs',
+    );
+
+    expect(parseEntry(target.path).status, 'deprecated');
+    expect(successor.readAsBytesSync(), orderedEquals(successorBefore));
+    expect(unrelated.readAsBytesSync(), orderedEquals(unrelatedBefore));
+  });
+
+  test('sequential updates settle a dirty backlog', () {
+    final targets = [
+      _writeEntry(register, day: 1, slug: 'target-one'),
+      _writeEntry(register, day: 3, slug: 'target-two'),
+      _writeEntry(register, day: 5, slug: 'target-three'),
+    ];
+    _writeEntry(
+      register,
+      day: 2,
+      slug: 'amendment-one',
+      updates: const ['target-one'],
+    );
+    _writeEntry(
+      register,
+      day: 4,
+      slug: 'amendment-two',
+      updates: const ['target-two'],
+    );
+    _writeEntry(
+      register,
+      day: 6,
+      slug: 'amendment-three',
+      updates: const ['target-three'],
+    );
+    expect(
+      linter
+          .lint(registerPath: register.path, repoRoot: sandbox.path)
+          .diagnostics
+          .where(
+            (diagnostic) =>
+                diagnostic.ruleId == DecisionLintRules.forceUpdatedBy,
           ),
-        ),
+      hasLength(3),
+    );
+
+    for (final (target, successor) in [
+      ('target-one', 'amendment-one'),
+      ('target-two', 'amendment-two'),
+      ('target-three', 'amendment-three'),
+    ]) {
+      service.update(
+        registerPath: register.path,
+        repoRoot: sandbox.path,
+        target: target,
+        successor: successor,
       );
-      expect(target.readAsBytesSync(), orderedEquals(before));
-    },
-  );
+    }
+
+    expect(
+      parseEntry(targets[0].path).cachedUpdatedBy,
+      orderedEquals(['amendment-one']),
+    );
+    expect(
+      parseEntry(targets[1].path).cachedUpdatedBy,
+      orderedEquals(['amendment-two']),
+    );
+    expect(
+      parseEntry(targets[2].path).cachedUpdatedBy,
+      orderedEquals(['amendment-three']),
+    );
+    final result = linter.lint(
+      registerPath: register.path,
+      repoRoot: sandbox.path,
+    );
+    expect(result.isClean, isTrue, reason: '${result.toJson()}');
+  });
+
+  test('lint keeps reporting unrelated diagnostics after mutation', () {
+    _writeEntry(
+      register,
+      day: 1,
+      slug: 'base-rule',
+      updatedBy: const ['amendment'],
+    );
+    _writeEntry(
+      register,
+      day: 2,
+      slug: 'amendment',
+      updates: const ['base-rule'],
+    );
+    _writeEntry(
+      register,
+      day: 3,
+      slug: 'unrelated-rule',
+      surface: 'missing/**',
+    );
+    _writeEntry(
+      register,
+      day: 4,
+      slug: 'unrelated-amendment',
+      surface: 'missing/**',
+      updates: const ['unrelated-rule'],
+    );
+    final before = utf8.encode(
+      jsonEncode(
+        linter
+            .lint(registerPath: register.path, repoRoot: sandbox.path)
+            .diagnostics
+            .map((diagnostic) => diagnostic.toJson())
+            .toList(),
+      ),
+    );
+
+    service.update(
+      registerPath: register.path,
+      repoRoot: sandbox.path,
+      target: 'base-rule',
+      successor: 'amendment',
+    );
+
+    final after = utf8.encode(
+      jsonEncode(
+        linter
+            .lint(registerPath: register.path, repoRoot: sandbox.path)
+            .diagnostics
+            .map((diagnostic) => diagnostic.toJson())
+            .toList(),
+      ),
+    );
+    expect(after, orderedEquals(before));
+  });
 
   test(
     'update command records a local edge in a roster-wide register end to end',

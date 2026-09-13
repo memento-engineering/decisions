@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:decisions/decisions.dart';
@@ -249,38 +250,82 @@ void main() {
     );
   });
 
-  test('two unsettled force requests are refused loudly, changing nothing', () {
+  test('two unsettled force requests settle sequentially', () {
     final docket = _Docket();
     addTearDown(docket.dispose);
     final targetOne = docket.entry('target-one', day: 1);
-    docket.entry('request-one', day: 2, obsoletes: const ['target-one']);
-    final targetTwo = docket.entry('target-two', day: 3);
-    docket.entry('request-two', day: 4, obsoletes: const ['target-two']);
-    final beforeOne = targetOne.readAsBytesSync();
-    final beforeTwo = targetTwo.readAsBytesSync();
-
-    expect(
-      () => const DecisionMutationService().obsolete(
-        registerPath: docket.register.path,
-        repoRoot: docket.root.path,
-        target: 'target-one',
-        successor: 'request-one',
-      ),
-      throwsA(
-        isA<DecisionMutationException>().having(
-          (error) => error.message,
-          'message',
-          contains('candidate register is not clean'),
-        ),
-      ),
+    final requestOne = docket.entry(
+      'request-one',
+      day: 2,
+      obsoletes: const ['target-one'],
     );
-    expect(targetOne.readAsBytesSync(), orderedEquals(beforeOne));
-    expect(targetTwo.readAsBytesSync(), orderedEquals(beforeTwo));
+    final targetTwo = docket.entry('target-two', day: 3);
+    final requestTwo = docket.entry(
+      'request-two',
+      day: 4,
+      obsoletes: const ['target-two'],
+    );
+    final targetOneBodyBefore = _bodyBytes(targetOne);
+    final targetOneAuthoredBefore = _authored(parseEntry(targetOne.path));
+    final requestOneBefore = requestOne.readAsBytesSync();
+    final targetTwoBodyBefore = _bodyBytes(targetTwo);
+    final targetTwoAuthoredBefore = _authored(parseEntry(targetTwo.path));
+    final requestTwoBefore = requestTwo.readAsBytesSync();
+    const service = DecisionMutationService();
+
+    service.obsolete(
+      registerPath: docket.register.path,
+      repoRoot: docket.root.path,
+      target: 'target-one',
+      successor: 'request-one',
+    );
+    service.obsolete(
+      registerPath: docket.register.path,
+      repoRoot: docket.root.path,
+      target: 'target-two',
+      successor: 'request-two',
+    );
+
+    final settledOne = parseEntry(targetOne.path);
+    expect(settledOne.status, 'superseded by request-one');
+    expect(settledOne.cachedObsoletedBy, 'request-one');
+    expect(_bodyBytes(targetOne), orderedEquals(targetOneBodyBefore));
+    expect(_authored(settledOne), targetOneAuthoredBefore);
+    expect(requestOne.readAsBytesSync(), orderedEquals(requestOneBefore));
+
+    final settledTwo = parseEntry(targetTwo.path);
+    expect(settledTwo.status, 'superseded by request-two');
+    expect(settledTwo.cachedObsoletedBy, 'request-two');
+    expect(_bodyBytes(targetTwo), orderedEquals(targetTwoBodyBefore));
+    expect(_authored(settledTwo), targetTwoAuthoredBefore);
+    expect(requestTwo.readAsBytesSync(), orderedEquals(requestTwoBefore));
+
+    final result = docket.lint;
+    expect(result.isClean, isTrue, reason: '${result.toJson()}');
+  });
+
+  test('scopes force refusal and settles authored rows one at a time', () {
+    for (final clause in [
+      'lints the full candidate register exactly once',
+      'only non-exempt diagnostics on the entries the operation touches',
+      'original\nrepo-root-relative path and sorted rule ids',
+      'Unrelated lint findings remain in place and do not block the operation.',
+      'The target slug is positional.',
+      '`obsolete` and `update` take the successor with\n`--by`',
+      '`vacate` takes it with `--successor`',
+    ]) {
+      expect(_skill, contains(clause), reason: clause);
+    }
+    _expectInOrder([
+      'apply them one row at a time',
+      'lint after\nthe final row',
+      'Never hand-edit a force cache',
+    ]);
     expect(
       _skill,
       contains(
-        'reporting `candidate register is not clean: <rules>` and changing no '
-        'file',
+        'candidate register is not clean: <path> [<rule, ...>]; '
+        '<path> [<rule, ...>]',
       ),
     );
   });
@@ -314,3 +359,24 @@ void main() {
     );
   });
 }
+
+List<int> _bodyBytes(File file) {
+  final source = file.readAsStringSync();
+  final match = RegExp(
+    r'^---\r?\n.*?\r?\n---\r?\n',
+    dotAll: true,
+  ).firstMatch(source)!;
+  return utf8.encode(source.substring(match.end));
+}
+
+Map<String, Object?> _authored(DecisionEntry entry) => {
+  'date': entry.date,
+  'spec': entry.spec,
+  'slug': entry.slug,
+  'surfaces': entry.surfaces,
+  'obsoletes': entry.obsoletes,
+  'updates': entry.updates,
+  'bead': entry.bead,
+  'legacyId': entry.legacyId,
+  'decisionMakers': entry.decisionMakers,
+};
