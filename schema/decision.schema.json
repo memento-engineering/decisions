@@ -7,10 +7,10 @@
   "required": ["status", "date", "register"],
   "properties": {
     "status": {
-      "description": "MADR status. This profile never uses `proposed` — entries are born accepted.",
+      "description": "MADR status. This profile never uses `proposed` — entries are born accepted. A superseding source may be a slug or `<repo>#<slug>`.",
       "oneOf": [
         { "enum": ["accepted", "deprecated", "rejected"] },
-        { "type": "string", "pattern": "^superseded by [a-z0-9]+(-[a-z0-9]+)*$" }
+        { "type": "string", "pattern": "^superseded by ([a-z0-9_.-]+#)?[a-z0-9]+(-[a-z0-9]+)*$" }
       ]
     },
     "date": { "type": "string", "format": "date", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },

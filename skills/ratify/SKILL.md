@@ -157,6 +157,10 @@ Honour what the force commands enforce, and never work around them:
   edge to the target; `update` requires the successor author an `updates` edge.
 * `vacate` requires a concrete successor slug. Never `none`: record a decision
   stating that no rule governs the surface and pass its slug.
+* A successor in ANOTHER register is spelled `<repo>#<slug>` and resolves
+  through the roster — the composed register resolver, or repeatable
+  `--roster <register-path>` options. The named entry must exist there and
+  author the matching edge back, or the command refuses.
 
 For a row whose disposition needs a NEW entry, record it with the `decide` skill
 before running the force command, with the ruling human in `decision-makers` and

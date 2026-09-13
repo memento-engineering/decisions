@@ -1,12 +1,14 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:args/args.dart';
 import 'package:args/command_runner.dart';
 
 import 'index_command.dart';
 import 'legacy.dart';
 import 'lint.dart';
 import 'mutation.dart';
+import 'register_union.dart';
 import 'search_command.dart';
 
 /// Composable `decisions` command group.
@@ -20,9 +22,6 @@ final class DecisionsCommand extends Command<int> {
     StringSink? output,
     StringSink? error,
   }) {
-    final resolvedLinter = linter ?? const DecisionLintService();
-    final resolvedMutator =
-        mutator ?? DecisionMutationService(linter: resolvedLinter);
     final resolvedOutput = output ?? stdout;
     final resolvedError = error ?? stderr;
     final resolvedRegisterPaths =
@@ -40,40 +39,30 @@ final class DecisionsCommand extends Command<int> {
         error: resolvedError,
       ),
     );
-    addSubcommand(_LintCommand(linter: resolvedLinter, output: resolvedOutput));
+    addSubcommand(
+      _LintCommand(
+        linter: linter,
+        registerPaths: resolvedRegisterPaths,
+        output: resolvedOutput,
+      ),
+    );
     addSubcommand(
       _MigrateLegacyCommand(
         converter: legacyConverter ?? const LegacyRegisterConversionService(),
         output: resolvedOutput,
       ),
     );
-    addSubcommand(
-      _MutationCommand(
-        commandName: 'obsolete',
-        commandDescription: 'Mark a decision as entirely replaced.',
-        successorOption: 'by',
-        mutator: resolvedMutator.obsolete,
-        output: resolvedOutput,
-      ),
-    );
-    addSubcommand(
-      _MutationCommand(
-        commandName: 'update',
-        commandDescription: 'Record an amendment to an accepted decision.',
-        successorOption: 'by',
-        mutator: resolvedMutator.update,
-        output: resolvedOutput,
-      ),
-    );
-    addSubcommand(
-      _MutationCommand(
-        commandName: 'vacate',
-        commandDescription: 'Withdraw a decision after recording a successor.',
-        successorOption: 'successor',
-        mutator: resolvedMutator.vacate,
-        output: resolvedOutput,
-      ),
-    );
+    for (final verb in _ForceVerb.values) {
+      addSubcommand(
+        _MutationCommand(
+          verb: verb,
+          mutator: mutator,
+          linter: linter,
+          registerPaths: resolvedRegisterPaths,
+          output: resolvedOutput,
+        ),
+      );
+    }
   }
 
   @override
@@ -84,15 +73,20 @@ final class DecisionsCommand extends Command<int> {
 }
 
 final class _LintCommand extends Command<int> {
-  _LintCommand({required DecisionLinter linter, required StringSink output})
-    : _linter = linter,
-      _output = output {
+  _LintCommand({
+    required DecisionLinter? linter,
+    required RegisterPathResolver registerPaths,
+    required StringSink output,
+  }) : _linter = linter,
+       _registerPaths = registerPaths,
+       _output = output {
     argParser
       ..addOption(
         'repo-root',
         defaultsTo: '.',
         help: 'Repository root used to resolve governed surfaces.',
       )
+      ..addMultiOption('roster', valueHelp: 'register-path', help: _rosterHelp)
       ..addFlag(
         'json',
         negatable: false,
@@ -100,7 +94,8 @@ final class _LintCommand extends Command<int> {
       );
   }
 
-  final DecisionLinter _linter;
+  final DecisionLinter? _linter;
+  final RegisterPathResolver _registerPaths;
   final StringSink _output;
 
   @override
@@ -115,7 +110,12 @@ final class _LintCommand extends Command<int> {
     if (positional.length != 1) {
       usageException('Expected exactly one register path.');
     }
-    final result = _linter.lint(
+    final linter =
+        _linter ??
+        DecisionLintService(
+          roster: _resolveRoster(argResults!, _registerPaths),
+        );
+    final result = linter.lint(
       registerPath: positional.single,
       repoRoot: argResults!.option('repo-root')!,
     );
@@ -205,55 +205,74 @@ final class _MigrateLegacyCommand extends Command<int> {
   }
 }
 
-typedef _RunMutation =
-    void Function({
-      required String registerPath,
-      required String repoRoot,
-      required String target,
-      required String successor,
-    });
+/// The three permitted decision-force operations, as command verbs.
+enum _ForceVerb {
+  /// Mark a decision as entirely replaced.
+  obsolete(successorOption: 'by'),
+
+  /// Record an amendment to an accepted decision.
+  update(successorOption: 'by'),
+
+  /// Withdraw a decision after recording a successor.
+  vacate(successorOption: 'successor');
+
+  const _ForceVerb({required this.successorOption});
+
+  /// The option naming this verb's successor on the command line.
+  final String successorOption;
+
+  /// The verb's one-line command description.
+  String get description => switch (this) {
+    _ForceVerb.obsolete => 'Mark a decision as entirely replaced.',
+    _ForceVerb.update => 'Record an amendment to an accepted decision.',
+    _ForceVerb.vacate => 'Withdraw a decision after recording a successor.',
+  };
+}
 
 final class _MutationCommand extends Command<int> {
   _MutationCommand({
-    required String commandName,
-    required String commandDescription,
-    required String successorOption,
-    required _RunMutation mutator,
+    required _ForceVerb verb,
+    required DecisionMutator? mutator,
+    required DecisionLinter? linter,
+    required RegisterPathResolver registerPaths,
     required StringSink output,
-  }) : _commandName = commandName,
-       _commandDescription = commandDescription,
-       _successorOption = successorOption,
+  }) : _verb = verb,
        _mutator = mutator,
+       _linter = linter,
+       _registerPaths = registerPaths,
        _output = output {
     argParser
       ..addOption(
-        successorOption,
+        verb.successorOption,
         valueHelp: 'slug',
-        help: 'The already-recorded successor decision slug.',
+        help:
+            'The already-recorded successor decision, as a local slug or '
+            '<repo>#<slug>.',
       )
       ..addOption(
         'register',
         defaultsTo: 'docs/decisions',
-        help: 'Decision register containing both entries.',
+        help: 'Decision register containing the target entry.',
       )
       ..addOption(
         'repo-root',
         defaultsTo: '.',
         help: 'Repository root used for candidate linting.',
-      );
+      )
+      ..addMultiOption('roster', valueHelp: 'register-path', help: _rosterHelp);
   }
 
-  final String _commandName;
-  final String _commandDescription;
-  final String _successorOption;
-  final _RunMutation _mutator;
+  final _ForceVerb _verb;
+  final DecisionMutator? _mutator;
+  final DecisionLinter? _linter;
+  final RegisterPathResolver _registerPaths;
   final StringSink _output;
 
   @override
-  String get name => _commandName;
+  String get name => _verb.name;
 
   @override
-  String get description => _commandDescription;
+  String get description => _verb.description;
 
   @override
   int run() {
@@ -262,14 +281,28 @@ final class _MutationCommand extends Command<int> {
       _output.writeln('error: expected exactly one target slug');
       return 1;
     }
-    final successor = argResults!.option(_successorOption);
+    final successor = argResults!.option(_verb.successorOption);
     if (successor == null || successor.isEmpty) {
-      _output.writeln('error: --$_successorOption requires a successor slug');
+      _output.writeln(
+        'error: --${_verb.successorOption} requires a successor slug',
+      );
       return 1;
     }
 
+    final mutator =
+        _mutator ??
+        DecisionMutationService(
+          linter: _linter,
+          roster: _resolveRoster(argResults!, _registerPaths),
+        );
+    final run = switch (_verb) {
+      _ForceVerb.obsolete => mutator.obsolete,
+      _ForceVerb.update => mutator.update,
+      _ForceVerb.vacate => mutator.vacate,
+    };
+
     try {
-      _mutator(
+      run(
         registerPath: argResults!.option('register')!,
         repoRoot: argResults!.option('repo-root')!,
         target: positional.single,
@@ -282,4 +315,22 @@ final class _MutationCommand extends Command<int> {
       return 1;
     }
   }
+}
+
+const _rosterHelp =
+    'Sibling decision register resolved for <repo>#<slug> edges; repeatable. '
+    'Defaults to the composed register resolver.';
+
+/// The roster a verb resolves cross-register references against.
+///
+/// Explicit `--roster` paths win; otherwise the composed resolver is read
+/// afresh, so a station sees the registers its roster mounts right now.
+DecisionRoster _resolveRoster(
+  ArgResults results,
+  RegisterPathResolver registerPaths,
+) {
+  final explicit = results.multiOption('roster');
+  return DecisionRegisterRoster.fromRegisterPaths(
+    explicit.isNotEmpty ? explicit : registerPaths(),
+  );
 }

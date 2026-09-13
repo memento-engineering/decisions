@@ -59,10 +59,15 @@ class DecisionEntry {
   /// AUTHORED edges: entries this one amends, which remain in force.
   final List<String> updates;
 
-  /// Cached source slug that obsoletes this entry, or null.
+  /// Cached source reference that obsoletes this entry, or null.
+  ///
+  /// A local slug, or `<repo>#<slug>` when the source lives in another
+  /// register of the roster.
   final String? cachedObsoletedBy;
 
-  /// Cached source slugs that update this entry.
+  /// Cached source references that update this entry.
+  ///
+  /// Local slugs, and `<repo>#<slug>` for sources in another register.
   final List<String> cachedUpdatedBy;
 
   /// Optional authored link to the decision-type bead.
@@ -117,7 +122,7 @@ const _registerKeys = <String>{
 final _datePattern = RegExp(r'^\d{4}-\d{2}-\d{2}$');
 final _slugPattern = RegExp(r'^[a-z0-9]+(?:-[a-z0-9]+)*$');
 final _supersededStatusPattern = RegExp(
-  r'^superseded by [a-z0-9]+(?:-[a-z0-9]+)*$',
+  r'^superseded by (?:[a-z0-9_.-]+#)?[a-z0-9]+(?:-[a-z0-9]+)*$',
 );
 
 /// Reads every `*.md` entry in the register rooted at [directory].

@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 
 import 'entry.dart';
 import 'graph.dart';
+import 'register_union.dart';
 
 /// UI-drivable contract for decision-register linting.
 abstract interface class DecisionLinter {
@@ -26,6 +27,7 @@ abstract final class DecisionLintRules {
   static const edgeInvalidReference = 'edge.invalid-reference';
   static const edgeDanglingLocal = 'edge.dangling-local';
   static const edgeAmbiguousLocal = 'edge.ambiguous-local';
+  static const edgeDanglingCrossRegister = 'edge.dangling-cross-register';
   static const forceObsoletedBy = 'force.obsoleted-by';
   static const forceUpdatedBy = 'force.updated-by';
   static const forceStatus = 'force.status';
@@ -109,7 +111,15 @@ final class DecisionLintResult {
 
 /// Graph-aware validation for one decision register.
 final class DecisionLintService implements DecisionLinter {
-  const DecisionLintService();
+  /// Creates a linter resolving `<repo>#<slug>` citations through [roster].
+  ///
+  /// The default roster sees no sibling register, so every cross-register
+  /// citation is exempt and single-register linting is unchanged.
+  const DecisionLintService({
+    DecisionRoster roster = const DecisionRegisterRoster.empty(),
+  }) : _roster = roster;
+
+  final DecisionRoster _roster;
 
   static const supportedSpec = 1;
   static final _localReference = RegExp(
@@ -126,6 +136,7 @@ final class DecisionLintService implements DecisionLinter {
   }) {
     final root = p.normalize(p.absolute(repoRoot));
     final register = p.normalize(p.absolute(registerPath));
+    final originRegister = _originRegisterOf(register);
     final diagnostics = <DecisionLintDiagnostic>[];
     final entries = <DecisionEntry>[];
     var graphIsSound = true;
@@ -246,7 +257,25 @@ final class DecisionLintService implements DecisionLinter {
 
     for (final entry in entries) {
       for (final reference in [...entry.obsoletes, ...entry.updates]) {
-        if (_crossReference.hasMatch(reference)) continue;
+        final crossRegister = _crossReference.hasMatch(reference)
+            ? DecisionReference.parse(reference)
+            : null;
+        if (crossRegister != null) {
+          final target = _roster.findRegister(crossRegister.register);
+          if (target != null &&
+              target.graph.findEntry(crossRegister.reference) == null) {
+            diagnostics.add(
+              _diagnostic(
+                entry,
+                root,
+                DecisionLintRules.edgeDanglingCrossRegister,
+                'authored reference "$reference" does not resolve in roster '
+                'register "${crossRegister.register}"',
+              ),
+            );
+          }
+          continue;
+        }
         if (!_localReference.hasMatch(reference)) {
           graphIsSound = false;
           diagnostics.add(
@@ -288,6 +317,7 @@ final class DecisionLintService implements DecisionLinter {
       _lintForceCache(
         graph: DecisionGraph(entries),
         entries: entries,
+        originRegister: originRegister,
         repoRoot: root,
         diagnostics: diagnostics,
       );
@@ -295,19 +325,32 @@ final class DecisionLintService implements DecisionLinter {
     return _result(register, root, diagnostics);
   }
 
-  static void _lintForceCache({
+  void _lintForceCache({
     required DecisionGraph graph,
     required List<DecisionEntry> entries,
+    required String? originRegister,
     required String repoRoot,
     required List<DecisionLintDiagnostic> diagnostics,
   }) {
     for (final entry in entries) {
-      final obsoleting =
-          graph.obsoletedBy(entry.slug).map((source) => source.slug).toList()
-            ..sort();
-      final updating =
-          graph.updatedBy(entry.slug).map((source) => source.slug).toList()
-            ..sort();
+      final obsoleting = expectedForceCache(
+        roster: _roster,
+        originRegister: originRegister,
+        localSources: graph.obsoletedBy(entry.slug),
+        target: entry,
+        cached: entry.cachedObsoletedBy == null
+            ? const <String>[]
+            : <String>[entry.cachedObsoletedBy!],
+        kind: DecisionEdgeKind.obsoletes,
+      );
+      final updating = expectedForceCache(
+        roster: _roster,
+        originRegister: originRegister,
+        localSources: graph.updatedBy(entry.slug),
+        target: entry,
+        cached: entry.cachedUpdatedBy,
+        kind: DecisionEdgeKind.updates,
+      );
 
       final expectedObsoletedBy = obsoleting.length == 1
           ? obsoleting.single
@@ -369,6 +412,14 @@ final class DecisionLintService implements DecisionLinter {
           ),
         );
       }
+    }
+  }
+
+  static String? _originRegisterOf(String registerPath) {
+    try {
+      return decisionOriginRegister(registerPath);
+    } on DecisionRegisterUnionException {
+      return null;
     }
   }
 

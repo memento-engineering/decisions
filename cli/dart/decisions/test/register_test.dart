@@ -39,10 +39,12 @@ void main() {
         beads['successor-updated-by-dirt-does-not-block-force-mutation'],
         'dec-o67',
       );
+      expect(beads['cross-register-force-edges'], 'dec-b17');
       beads.remove('docket-triggers');
       beads.remove('lexical-precedent-search');
       beads.remove('force-mutations-scope-cleanliness-to-touched-entries');
       beads.remove('successor-updated-by-dirt-does-not-block-force-mutation');
+      beads.remove('cross-register-force-edges');
       expect(beads.values, everyElement(isNull));
       expect(entries.map((entry) => entry.legacyId), everyElement(isNull));
     });

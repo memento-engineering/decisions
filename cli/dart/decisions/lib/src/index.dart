@@ -182,22 +182,9 @@ final class DecisionIndex {
     PendingDecisionEdge edge,
     DecisionRegisterUnion union,
   ) {
-    final separator = edge.targetReference.indexOf('#');
-    if (separator <= 0 || separator == edge.targetReference.length - 1) {
-      return IndexedDecisionEdge(
-        kind: edge.kind,
-        reference: edge.targetReference,
-        resolution: DecisionIndexEdgeResolution.dangling,
-      );
-    }
-
-    final targetRegisterName = edge.targetReference.substring(0, separator);
-    final targetReference = edge.targetReference.substring(separator + 1);
-    final target = union
-        .findRegister(targetRegisterName)
-        ?.graph
-        .findEntry(targetReference);
-    return target == null
+    final reference = DecisionReference.parse(edge.targetReference);
+    final target = reference == null ? null : union.resolveReference(reference);
+    return target == null || reference == null
         ? IndexedDecisionEdge(
             kind: edge.kind,
             reference: edge.targetReference,
@@ -207,7 +194,7 @@ final class DecisionIndex {
             kind: edge.kind,
             reference: edge.targetReference,
             resolution: DecisionIndexEdgeResolution.resolved,
-            targetRegister: targetRegisterName,
+            targetRegister: reference.register,
             targetSlug: target.slug,
           );
   }
