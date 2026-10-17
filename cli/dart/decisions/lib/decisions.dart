@@ -17,3 +17,4 @@ export 'src/register_union.dart';
 export 'src/render.dart';
 export 'src/search.dart';
 export 'src/search_command.dart';
+export 'src/version.dart';

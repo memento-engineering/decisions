@@ -31,8 +31,50 @@ by copying `templates/` and writing files.
 | Tier | What you get | Needs |
 |---|---|---|
 | 0 — prose | format, templates, a greppable register, skills as plain markdown | nothing |
-| 1 — CLI | `decisions index / search / lint / render / obsolete / update / vacate`, JSON out | an ecosystem impl |
+| 1 — CLI | `decisions index / search / lint / obsolete / update / vacate`, JSON out | the [`decisions` binary](#install-the-cli), or any ecosystem impl |
 | 2 — grid | overlay-installed skills, the committee lens, roster-wide cross-repo index and search, decision beads | a station |
+
+## Install the CLI
+
+Every `decisions-v<version>` [release](https://github.com/memento-engineering/decisions/releases)
+attaches prebuilt binaries for macOS (Apple silicon) and Linux (x64, arm64). They need no Dart
+toolchain.
+
+With Homebrew, which carries stable releases only:
+
+```sh
+brew install memento-engineering/tap/decisions
+```
+
+Or pin an exact version by download and checksum, which is what CI should do:
+
+```sh
+version=0.3.0
+target=linux-x64   # or linux-arm64, macos-arm64
+base="https://github.com/memento-engineering/decisions/releases/download/decisions-v$version"
+curl -fsSLO "$base/decisions-$version-$target"
+curl -fsSL "$base/SHA256SUMS" | grep " decisions-$version-$target\$" | sha256sum -c -
+install -m 0755 "decisions-$version-$target" /usr/local/bin/decisions
+```
+
+On macOS, use `shasum -a 256 -c -` in place of `sha256sum -c -`. Prereleases (`0.3.0-rc.1`) are
+downloaded the same way.
+
+`decisions --version` names the version and the spec range the binary reads and writes:
+
+```text
+decisions 0.3.0 (reads spec <= 1, writes spec 1)
+```
+
+Exit codes are `0` for success, `1` for lint findings or a refused mutation, and `64` for a
+malformed invocation. `decisions lint docs/decisions` is therefore a CI gate on its own.
+
+Elsewhere — Intel Macs, Windows — run the same engine with the Dart SDK:
+
+```sh
+dart pub global activate --source git https://github.com/memento-engineering/decisions \
+  --git-path cli/dart/decisions --git-ref decisions-v0.3.0
+```
 
 ## Search for precedent
 
@@ -106,6 +148,7 @@ in [`cli/dart/decisions/`](cli/dart/decisions) — `index`, `search`, `lint`, `m
 `decide` and `ratify` skills, vends the `decision-alignment` rubric, and composes a
 `<station> decisions` command over a live roster.
 
-Neither Dart package is published to pub.dev yet (`publish_to: none`); consume them by git ref, or
-vendor `cli/dart/decisions` directly. A tier-1 implementation in another ecosystem is unbuilt —
-the format is specified so that it does not have to be Dart.
+Tier 1 also ships as [prebuilt binaries](#install-the-cli). Neither Dart package is published to
+pub.dev yet (`publish_to: none`); consume them by git ref, or vendor `cli/dart/decisions` directly.
+A tier-1 implementation in another ecosystem is unbuilt — the format is specified so that it does
+not have to be Dart.
