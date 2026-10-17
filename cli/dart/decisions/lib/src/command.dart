@@ -10,6 +10,7 @@ import 'lint.dart';
 import 'mutation.dart';
 import 'register_union.dart';
 import 'search_command.dart';
+import 'version.dart';
 
 /// Composable `decisions` command group.
 final class DecisionsCommand extends Command<int> {
@@ -22,47 +23,14 @@ final class DecisionsCommand extends Command<int> {
     StringSink? output,
     StringSink? error,
   }) {
-    final resolvedOutput = output ?? stdout;
-    final resolvedError = error ?? stderr;
-    final resolvedRegisterPaths =
-        registerPaths ?? () => const <String>['docs/decisions'];
-    addSubcommand(
-      IndexCommand(
-        output: resolvedOutput,
-        registerPaths: resolvedRegisterPaths,
-      ),
-    );
-    addSubcommand(
-      DecisionSearchCommand(
-        registerPaths: resolvedRegisterPaths,
-        output: resolvedOutput,
-        error: resolvedError,
-      ),
-    );
-    addSubcommand(
-      _LintCommand(
-        linter: linter,
-        registerPaths: resolvedRegisterPaths,
-        output: resolvedOutput,
-      ),
-    );
-    addSubcommand(
-      _MigrateLegacyCommand(
-        converter: legacyConverter ?? const LegacyRegisterConversionService(),
-        output: resolvedOutput,
-      ),
-    );
-    for (final verb in _ForceVerb.values) {
-      addSubcommand(
-        _MutationCommand(
-          verb: verb,
-          mutator: mutator,
-          linter: linter,
-          registerPaths: resolvedRegisterPaths,
-          output: resolvedOutput,
-        ),
-      );
-    }
+    _verbs(
+      linter: linter,
+      legacyConverter: legacyConverter,
+      mutator: mutator,
+      registerPaths: registerPaths,
+      output: output,
+      error: error,
+    ).forEach(addSubcommand);
   }
 
   @override
@@ -70,6 +38,117 @@ final class DecisionsCommand extends Command<int> {
 
   @override
   String get description => 'Inspect and maintain a decision register.';
+}
+
+/// The standalone `decisions` executable: the same verbs as
+/// [DecisionsCommand], at top level, plus `--version`.
+///
+/// [run] never throws a [UsageException]; it reports one on the error sink and
+/// returns [usageExitCode].
+final class DecisionsCommandRunner extends CommandRunner<int> {
+  /// Creates the runner with injectable services, register resolver, and sinks.
+  DecisionsCommandRunner({
+    DecisionLinter? linter,
+    LegacyRegisterConverter? legacyConverter,
+    DecisionMutator? mutator,
+    RegisterPathResolver? registerPaths,
+    StringSink? output,
+    StringSink? error,
+  }) : _output = output ?? stdout,
+       _error = error ?? stderr,
+       super('decisions', 'Inspect and maintain a decision register.') {
+    argParser.addFlag(
+      'version',
+      negatable: false,
+      help: 'Print the artifact version and the spec it reads and writes.',
+    );
+    _verbs(
+      linter: linter,
+      legacyConverter: legacyConverter,
+      mutator: mutator,
+      registerPaths: registerPaths,
+      output: _output,
+      error: _error,
+    ).forEach(addCommand);
+  }
+
+  /// The exit code for a malformed invocation (`EX_USAGE`).
+  static const usageExitCode = 64;
+
+  final StringSink _output;
+  final StringSink _error;
+
+  /// The `--version` line: the artifact version, then the spec range it
+  /// reads and the one spec it writes (`spec-and-artifact-versioning`).
+  static String get versionLine =>
+      'decisions $decisionsVersion '
+      '(reads spec <= ${DecisionLintService.supportedSpec}, '
+      'writes spec ${DecisionLintService.supportedSpec})';
+
+  @override
+  Future<int> run(Iterable<String> args) async {
+    try {
+      return await super.run(args) ?? 0;
+    } on UsageException catch (error) {
+      _error
+        ..writeln(error.message)
+        ..writeln()
+        ..writeln(error.usage);
+      return usageExitCode;
+    }
+  }
+
+  @override
+  void printUsage() => _output.writeln(usage);
+
+  @override
+  Future<int?> runCommand(ArgResults topLevelResults) async {
+    if (topLevelResults.flag('version')) {
+      _output.writeln(versionLine);
+      return 0;
+    }
+    return super.runCommand(topLevelResults);
+  }
+}
+
+/// Every verb, built once per host so both hosts share one wiring.
+List<Command<int>> _verbs({
+  required DecisionLinter? linter,
+  required LegacyRegisterConverter? legacyConverter,
+  required DecisionMutator? mutator,
+  required RegisterPathResolver? registerPaths,
+  required StringSink? output,
+  required StringSink? error,
+}) {
+  final resolvedOutput = output ?? stdout;
+  final resolvedError = error ?? stderr;
+  final resolvedRegisterPaths =
+      registerPaths ?? () => const <String>['docs/decisions'];
+  return [
+    IndexCommand(output: resolvedOutput, registerPaths: resolvedRegisterPaths),
+    DecisionSearchCommand(
+      registerPaths: resolvedRegisterPaths,
+      output: resolvedOutput,
+      error: resolvedError,
+    ),
+    _LintCommand(
+      linter: linter,
+      registerPaths: resolvedRegisterPaths,
+      output: resolvedOutput,
+    ),
+    _MigrateLegacyCommand(
+      converter: legacyConverter ?? const LegacyRegisterConversionService(),
+      output: resolvedOutput,
+    ),
+    for (final verb in _ForceVerb.values)
+      _MutationCommand(
+        verb: verb,
+        mutator: mutator,
+        linter: linter,
+        registerPaths: resolvedRegisterPaths,
+        output: resolvedOutput,
+      ),
+  ];
 }
 
 final class _LintCommand extends Command<int> {

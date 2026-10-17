@@ -1,0 +1,136 @@
+name: release
+
+# Packages the standalone decisions CLI on each decisions-v<version> tag. The
+# tag is cut by the gated release command
+# (memento-engineering#releases-publish-only-through-the-gated-release-command);
+# this workflow only builds, checks and attaches what that tag names. See
+# docs/decisions/2026-10-17-the-decisions-cli-ships-as-prebuilt-binaries.md.
+on:
+  push:
+    tags: ['decisions-v*']
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    # One native runner per target, so every binary is executed before it is
+    # attached rather than only compiled.
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - runner: macos-14
+            target: macos-arm64
+          - runner: ubuntu-24.04
+            target: linux-x64
+          - runner: ubuntu-24.04-arm
+            target: linux-arm64
+    runs-on: ${{ matrix.runner }}
+    defaults:
+      run:
+        working-directory: cli/dart/decisions
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dart-lang/setup-dart@v1
+        with:
+          # Keep in step with ci.yaml.
+          sdk: 3.12.2
+      - run: dart pub get
+      - name: Compile
+        run: |
+          version="${GITHUB_REF_NAME#decisions-v}"
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+          echo "ASSET=decisions-$version-${{ matrix.target }}" >> "$GITHUB_ENV"
+          dart compile exe bin/decisions.dart -o "decisions-$version-${{ matrix.target }}"
+      - name: The binary reports the tagged version
+        run: |
+          reported="$(./"$ASSET" --version)"
+          echo "$reported"
+          case "$reported" in
+            "decisions $VERSION "*) ;;
+            *) echo "tag says $VERSION; the binary does not" >&2; exit 1 ;;
+          esac
+      - name: The binary lints this repo's own register clean
+        run: ./"$ASSET" lint ../../../docs/decisions --repo-root ../../..
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ASSET }}
+          path: cli/dart/decisions/${{ env.ASSET }}
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    outputs:
+      prerelease: ${{ steps.publish.outputs.prerelease }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Checksum
+        working-directory: dist
+        run: |
+          sha256sum decisions-* > SHA256SUMS
+          cat SHA256SUMS
+      - id: publish
+        name: Publish the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # A version with a prerelease suffix (0.3.0-rc.1) is a prerelease.
+          # Stable promotion is a human act
+          # (memento-engineering#agents-publish-prereleases-humans-promote-to-stable).
+          prerelease=false
+          flag=
+          case "${GITHUB_REF_NAME#decisions-v}" in
+            *-*) prerelease=true; flag=--prerelease ;;
+          esac
+          echo "prerelease=$prerelease" >> "$GITHUB_OUTPUT"
+          gh release create "$GITHUB_REF_NAME" dist/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --verify-tag \
+            --title "$GITHUB_REF_NAME" \
+            --notes "Standalone decisions CLI. Verify downloads against SHA256SUMS." \
+            $flag
+
+  tap:
+    # Homebrew serves stable releases only; prereleases stay on GitHub.
+    needs: release
+    if: needs.release.outputs.prerelease == 'false'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: 3.12.2
+      - uses: actions/checkout@v4
+        with:
+          repository: memento-engineering/homebrew-tap
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: homebrew-tap
+      - name: Render the formula from the published checksums
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="${GITHUB_REF_NAME#decisions-v}"
+          gh release download "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" \
+            --pattern SHA256SUMS --dir "$RUNNER_TEMP"
+          mkdir -p homebrew-tap/Formula
+          (cd cli/dart/decisions && dart pub get >&2 && dart run tool/homebrew_formula.dart \
+            "$version" "$RUNNER_TEMP/SHA256SUMS") > homebrew-tap/Formula/decisions.rb
+      - name: Push the bump to the tap
+        working-directory: homebrew-tap
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add Formula/decisions.rb
+          if git diff --cached --quiet; then
+            echo 'formula already current'
+            exit 0
+          fi
+          git commit -m "decisions ${GITHUB_REF_NAME#decisions-v}"
+          git push

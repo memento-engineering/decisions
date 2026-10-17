@@ -6,6 +6,9 @@ description: >-
 version: 0.3.0
 publish_to: none
 
+executables:
+  decisions: decisions
+
 environment:
   sdk: ^3.11.0
 

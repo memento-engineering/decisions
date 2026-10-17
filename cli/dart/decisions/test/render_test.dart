@@ -27,8 +27,11 @@ void main() {
       outputDirectory: output,
     );
 
+    // The format's lineage, then the CLI's distribution, which governs
+    // tooling and amends no format decision.
     expect(views.map((view) => view.fileName), [
       '0001-the-decision-register.md',
+      '0002-the-decisions-cli-ships-as-prebuilt-binaries.md',
     ]);
     final combined = views.map((view) => view.content).join('\n');
     final graph = DecisionGraph(readRegister(_selfHostedRegister));
@@ -36,7 +39,7 @@ void main() {
         .where((entry) => graph.isBinding(entry.slug))
         .toList();
 
-    expect(binding, hasLength(9));
+    expect(binding, hasLength(10));
     for (final entry in binding) {
       expect(combined, contains('<a id="${entry.slug}"></a>'));
     }
@@ -91,7 +94,7 @@ void main() {
     );
     final views = renderViews(graph: graph, template: template);
 
-    expect(views, hasLength(1));
+    expect(views, hasLength(2));
     for (final view in views) {
       expect(view.content, startsWith('<!-- layout sentinel -->'));
     }

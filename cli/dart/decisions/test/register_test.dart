@@ -40,11 +40,16 @@ void main() {
         'dec-o67',
       );
       expect(beads['cross-register-force-edges'], 'dec-b17');
+      expect(
+        beads['the-decisions-cli-ships-as-prebuilt-binaries'],
+        'dec-n8y.2',
+      );
       beads.remove('docket-triggers');
       beads.remove('lexical-precedent-search');
       beads.remove('force-mutations-scope-cleanliness-to-touched-entries');
       beads.remove('successor-updated-by-dirt-does-not-block-force-mutation');
       beads.remove('cross-register-force-edges');
+      beads.remove('the-decisions-cli-ships-as-prebuilt-binaries');
       expect(beads.values, everyElement(isNull));
       expect(entries.map((entry) => entry.legacyId), everyElement(isNull));
     });
