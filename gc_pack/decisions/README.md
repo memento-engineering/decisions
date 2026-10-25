@@ -6,7 +6,8 @@ holds two things:
 - **Skills `decide` and `ratify`.** Each is a stub that tells the agent to run
   `decisions guide <name>`, so the instructions always come from the installed `decisions`
   binary and match the engine that lints the agent's work. gc links them into each agent's skill
-  directory as `decisions.decide` and `decisions.ratify`.
+  directory as `decisions.decide` and `decisions.ratify`. Claude Code lists each under that
+  folder name with its own name as an alias (`decisions.decide (decide)`), and either invokes it.
 - **A doctor check, `decisions:binary`.** It reports whether `decisions` is on `PATH` and can
   serve this pack's skills, by running `decisions doctor --no-register --skills <pack>/skills`.
 
@@ -29,7 +30,11 @@ or by a pinned, checksummed download (see [Install the CLI](../../README.md#inst
 Use the prebuilt binary rather than `dart pub global activate`: gc gives each doctor check a few
 seconds at `gc start`, and a snapshot is slower to start.
 
-Install it where the sessions gc launches will find it, not only on your own shell's `PATH`.
+Sessions gc launches inherit the supervisor's `PATH`, not a login shell's. *v1.5.1:*
+`gc supervisor install` fixes that `PATH` when it runs: the installing shell's `PATH` plus
+`~/.local/bin`, `~/bin` and Homebrew's `bin`, so a `brew install` or a binary in `~/.local/bin`
+is found. If you install `decisions` anywhere else after the supervisor, run
+`gc supervisor install` again, or set `PATH` under `[workspace] env` in `city.toml`.
 
 ## 2. Pin a release
 
@@ -116,7 +121,9 @@ agent works a register: the mayor's working directory is the city root, which us
   lists each skill twice in that rig's agents.
 - **One skill channel per rig.** A gc rig gets its skills from this pack; a station-managed rig
   from its overlay; anything else from `decisions skills install .claude/skills`. A rig with
-  committed stubs *and* this pack sees both `decide` and `decisions.decide`.
+  committed stubs *and* this pack sees both `decide` and `decisions.decide` as two skills with
+  the same description, with no warning, and the bare name `decide` loads the committed stub, so
+  the two can drift apart unnoticed when the pack pin moves.
 - **One pin per city** (*v1.5.1*). gc allows a single `sha:` for this source across the whole
   city: every `[rigs.imports.*]`, `[defaults.rig.imports.*]` and `[imports.*]` table that names it
   must carry the same `version`, or `gc import install` and `gc import add` fail with
