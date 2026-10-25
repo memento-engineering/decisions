@@ -21,6 +21,14 @@ void main() {
     expect(runner.commands['new'], isA<DecisionNewCommand>());
   });
 
+  test('both hosts carry the doctor verb', () {
+    final grouped = DecisionsCommand(output: StringBuffer());
+    final runner = DecisionsCommandRunner(output: StringBuffer());
+
+    expect(grouped.subcommands['doctor'], isA<DoctorCommand>());
+    expect(runner.commands['doctor'], isA<DoctorCommand>());
+  });
+
   test('both hosts carry their own agent instructions', () {
     final grouped = DecisionsCommand(output: StringBuffer());
     final runner = DecisionsCommandRunner(output: StringBuffer());
@@ -35,6 +43,7 @@ void main() {
     ['prime'],
     ['guide'],
     ['guide', 'ratify'],
+    ['doctor', '--repo-root', '../../..'],
   ]) {
     test('${args.join(' ')} gives the grouped command\'s output', () async {
       final groupedOutput = StringBuffer();

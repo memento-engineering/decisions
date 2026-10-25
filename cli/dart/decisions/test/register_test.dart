@@ -59,6 +59,11 @@ void main() {
             'missing'],
         'dec-2ow',
       );
+      expect(
+        beads['decisions-doctor-answers-whether-this-binary-can-work-this-'
+            'register'],
+        'dec-2nx',
+      );
       beads.remove('docket-triggers');
       beads.remove('lexical-precedent-search');
       beads.remove('force-mutations-scope-cleanliness-to-touched-entries');
@@ -73,6 +78,9 @@ void main() {
       beads.remove('the-decisions-binary-carries-its-own-agent-instructions');
       beads.remove(
         'a-skill-stub-names-its-fallback-when-the-decisions-binary-is-missing',
+      );
+      beads.remove(
+        'decisions-doctor-answers-whether-this-binary-can-work-this-register',
       );
       expect(beads.values, everyElement(isNull));
       expect(entries.map((entry) => entry.legacyId), everyElement(isNull));
