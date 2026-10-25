@@ -75,7 +75,7 @@ final class DecisionRegisterUnion implements DecisionRoster {
     final diagnostics = <DecisionLintDiagnostic>[];
     final registersByName = <String, DecisionRegisterSnapshot>{};
     for (final path in paths) {
-      final name = decisionOriginRegister(path);
+      final name = decisionOriginRegister(p.absolute(path));
       final previous = registersByName[name];
       if (previous != null) {
         throw DecisionRegisterUnionException(
@@ -365,9 +365,26 @@ class DecisionRegisterUnionException implements Exception {
 
 /// Infers the cross-register namespace a register directory publishes under.
 ///
-/// `<repo>/docs/decisions` names `<repo>`, and a provisioned grid worktree
-/// under `<repo>/.grid/worktrees/<substation>/<bead>/docs/decisions` names the
-/// substation rather than the bead.
+/// A provisioned grid worktree under
+/// `<repo>/.grid/worktrees/<substation>/<bead>/docs/decisions` names the
+/// substation rather than the bead or the checkout holding it: the grid
+/// provisions a store's lanes in a checkout whose directory need not carry
+/// the store's name (`genesis-grid/.grid/worktrees/genesis/<bead>` is the
+/// `genesis` register).
+///
+/// Otherwise `<repo>/docs/decisions` names `<repo>`. When `<repo>` is a
+/// linked git worktree, its `.git` a file reading
+/// `gitdir: <main>/.git/worktrees/<id>`, the register names the main checkout
+/// the worktree belongs to, so a worktree such as
+/// `<main>/.claude/worktrees/<id>` publishes under the same name as the
+/// checkout it was made from. The main checkout is found by reading the
+/// worktree's `commondir` file or, without one, by walking up from
+/// `<main>/.git/worktrees/<id>`; nothing is spawned and nothing leaves the
+/// disk. A `.git` file this cannot follow (a submodule, a separate git
+/// directory, a broken pointer) falls back to the directory-name rule.
+///
+/// Both rules read the path's segments, so pass an absolute path: a relative
+/// `docs/decisions` has no `<repo>` segment and names `decisions`.
 String decisionOriginRegister(String registerPath) {
   final parts = p.split(p.normalize(registerPath));
   if (parts.length >= 3 &&
@@ -378,7 +395,8 @@ String decisionOriginRegister(String registerPath) {
         parts[parts.length - 5] == 'worktrees') {
       return parts[parts.length - 4];
     }
-    return parts[parts.length - 3];
+    return _linkedWorktreeRepository(p.joinAll(parts.take(parts.length - 2))) ??
+        parts[parts.length - 3];
   }
   final name = p.basename(p.normalize(registerPath));
   if (name.isEmpty || name == p.separator) {
@@ -387,4 +405,59 @@ String decisionOriginRegister(String registerPath) {
     );
   }
   return name;
+}
+
+/// Names the main checkout of the linked git worktree rooted at
+/// [checkoutRoot], or returns null when [checkoutRoot] is not one this can
+/// follow.
+///
+/// Only the small pointer files git itself writes are read: the worktree's
+/// `.git` file and its git directory's `commondir`. Every failure to read or
+/// follow them is a null rather than an exception, so the caller keeps its
+/// directory-name rule.
+String? _linkedWorktreeRepository(String checkoutRoot) {
+  try {
+    final root = p.absolute(checkoutRoot);
+    // A main checkout's `.git` is a directory, for which File.existsSync is
+    // false: only a linked checkout's pointer file is followed.
+    final dotGit = File(p.join(root, '.git'));
+    if (!dotGit.existsSync()) return null;
+    final pointer = dotGit
+        .readAsLinesSync()
+        .map((line) => line.trim())
+        .where((line) => line.startsWith('gitdir:'))
+        .firstOrNull;
+    if (pointer == null) return null;
+    final target = pointer.substring('gitdir:'.length).trim();
+    if (target.isEmpty) return null;
+    final gitDir = p.normalize(p.join(root, target));
+
+    final String commonDir;
+    final commonDirFile = File(p.join(gitDir, 'commondir'));
+    if (commonDirFile.existsSync()) {
+      final recorded = commonDirFile.readAsStringSync().trim();
+      if (recorded.isEmpty) return null;
+      commonDir = p.normalize(p.join(gitDir, recorded));
+    } else if (p.basename(p.dirname(gitDir)) == 'worktrees') {
+      commonDir = p.dirname(p.dirname(gitDir));
+    } else {
+      return null;
+    }
+
+    final base = p.basename(commonDir);
+    final name = base == '.git'
+        ? p.basename(p.dirname(commonDir))
+        // A bare repository's directory is conventionally `<name>.git`.
+        : base.endsWith('.git')
+        ? base.substring(0, base.length - '.git'.length)
+        : base;
+    if (name.isEmpty || name == p.separator || name == '.' || name == '..') {
+      return null;
+    }
+    return name;
+  } on FileSystemException {
+    return null;
+  } on FormatException {
+    return null;
+  }
 }
