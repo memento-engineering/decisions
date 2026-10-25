@@ -34,7 +34,19 @@ Install it where the sessions gc launches will find it, not only on your own she
 ## 2. Pin a release
 
 Releases are tagged `decisions-vX.Y.Z`. gc's semver resolver does not read prefixed tags, so pin
-the pack by the commit a tag points at, with `sha:`. Peel the tag, because an annotated tag's own
+the pack by the commit a tag points at, with `sha:`.
+
+The release notes print that pin as a ready `version = "sha:<commit>"` line, beside the source
+to use. Take it from the release your binary came from:
+
+```sh
+src=https://github.com/memento-engineering/decisions/tree/main/gc_pack/decisions
+sha=<commit>   # from the release notes' "Gas City" line
+```
+
+A release with no "Gas City" line was cut before the notes printed it. Peel its tag as below,
+and check that the commit carries `gc_pack/decisions` before you pin it: releases older than the
+pack do not. To resolve a tag's commit yourself, peel the tag, because an annotated tag's own
 object id is not a commit:
 
 ```sh
