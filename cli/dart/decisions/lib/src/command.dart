@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:args/args.dart';
 import 'package:args/command_runner.dart';
 
+import 'doctor_command.dart';
 import 'index_command.dart';
 import 'instructions_command.dart';
 import 'legacy.dart';
@@ -138,6 +139,7 @@ List<Command<int>> _verbs({
       registerPaths: resolvedRegisterPaths,
       output: resolvedOutput,
     ),
+    DoctorCommand(output: resolvedOutput),
     _MigrateLegacyCommand(
       converter: legacyConverter ?? const LegacyRegisterConversionService(),
       output: resolvedOutput,

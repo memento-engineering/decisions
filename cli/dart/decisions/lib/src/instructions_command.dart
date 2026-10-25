@@ -316,6 +316,10 @@ String _invocation(Command<int> command) {
   return [command.runner!.executableName, ...names].join(' ');
 }
 
+/// How [command]'s parent chain is invoked, e.g. `decisions` standalone or
+/// `station decisions` under a station: the command a skill stub names.
+String commandInvocation(Command<int> command) => _invocation(command);
+
 /// The one-line cue prime prints for a verb it knows; `null` falls back to the
 /// verb's own description.
 String? _whenToReach(String verb) => switch (verb) {
@@ -324,6 +328,7 @@ String? _whenToReach(String verb) => switch (verb) {
     'list the decisions governing a path (--surface) before changing it',
   'new' => 'record a decision just made; `guide decide` says how',
   'lint' => 'validate the register after any write',
+  'doctor' => 'check this binary can work this register (exit 0, 1, 2)',
   'obsolete' ||
   'update' ||
   'vacate' => 'only to carry out a docket ruling; `guide ratify` says how',

@@ -6,6 +6,8 @@
 library;
 
 export 'src/command.dart';
+export 'src/doctor.dart';
+export 'src/doctor_command.dart';
 export 'src/entry.dart';
 export 'src/graph.dart';
 export 'src/guide.dart';

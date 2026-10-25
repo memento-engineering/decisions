@@ -31,13 +31,15 @@ void main() {
     // then the CLI's distribution, which governs tooling and amends no format
     // decision, then register documents, which add to the format without
     // amending an entry, then the binary's agent instructions, which govern
-    // tooling.
+    // tooling, then the doctor verb, which governs tooling.
     expect(views.map((view) => view.fileName), [
       '0001-the-decision-register.md',
       '0002-the-decisions-cli-ships-as-prebuilt-binaries.md',
       '0003-a-registers-style-md-is-its-style-guide-and-uppercase-files-are-'
           'not-entries.md',
       '0004-the-decisions-binary-carries-its-own-agent-instructions.md',
+      '0005-decisions-doctor-answers-whether-this-binary-can-work-this-'
+          'register.md',
     ]);
     final combined = views.map((view) => view.content).join('\n');
     final graph = DecisionGraph(readRegister(_selfHostedRegister));
@@ -100,7 +102,7 @@ void main() {
     );
     final views = renderViews(graph: graph, template: template);
 
-    expect(views, hasLength(4));
+    expect(views, hasLength(5));
     for (final view in views) {
       expect(view.content, startsWith('<!-- layout sentinel -->'));
     }
