@@ -273,8 +273,13 @@ another entry: publishing a successor and changing its predecessor stay separate
 | Tier | What you get | Needs |
 |---|---|---|
 | 0 — prose | the format, templates, a greppable register, the skills as plain markdown | nothing |
-| 1 — CLI | `decisions index / search / lint / render / new / obsolete / update / vacate`, JSON out | an ecosystem impl |
+| 1 — CLI | a CLI that indexes, searches and lints the register, records entries and writes force changes, JSON out | an ecosystem impl |
 | 2 — grid | overlay-installed skills, the committee lens, roster-wide cross-repo index and search, decision beads | a station |
+
+The tier table names capabilities, not verbs. Verbs are tooling and change from release to release;
+the [README](README.md#tiers) and `decisions --help` list the current ones. The verbs this
+document defines (`decisions lint`, `index`, `search`, `new`, `obsolete`, `update` and `vacate`)
+are bound by the sections that define them.
 
 Cross-repo union is a tier-2 property because it needs a live roster: a station enumerates its
 mounted substations at runtime. Backstage's ADR plugin is the only comparable thing in the

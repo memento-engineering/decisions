@@ -81,6 +81,11 @@ void main() {
             'in-each-rigs-ci'],
         'dec-kch',
       );
+      expect(
+        beads['spec-tier-table-describes-capabilities-and-defers-the-verb-'
+            'list-to-the-cli'],
+        'dec-9ed',
+      );
       beads.remove('docket-triggers');
       beads.remove('lexical-precedent-search');
       beads.remove('force-mutations-scope-cleanliness-to-touched-entries');
@@ -107,6 +112,10 @@ void main() {
       beads.remove(
         'the-gas-city-pack-ships-no-orders-and-register-health-belongs-in-'
         'each-rigs-ci',
+      );
+      beads.remove(
+        'spec-tier-table-describes-capabilities-and-defers-the-verb-list-to-'
+        'the-cli',
       );
       expect(beads.values, everyElement(isNull));
       expect(entries.map((entry) => entry.legacyId), everyElement(isNull));
