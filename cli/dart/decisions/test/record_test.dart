@@ -158,6 +158,18 @@ void main() {
     expect(entry.surfaces, ['lib/*.dart']);
   });
 
+  for (final slug in ['null', 'true', '123', '1e3', '0x1f']) {
+    test('the slug "$slug", a YAML keyword or number, is quoted', () {
+      final result = record(draft(slug: slug));
+
+      expect(parseEntry(result.path).slug, slug);
+      expect(
+        linter.lint(registerPath: registerPath, repoRoot: repoRoot).isClean,
+        isTrue,
+      );
+    });
+  }
+
   group('refuses, writing nothing,', () {
     for (final slug in [
       'Upper',
@@ -186,8 +198,47 @@ void main() {
       expectRefused(draft(), 'already recorded in $path');
     });
 
+    test('a slug an unparseable entry on another date declares', () {
+      _writeEntry(registerPath, slug: 'new-rule');
+      final path = p.join(registerPath, '2026-01-01-new-rule.md');
+      final file = File(path);
+      file.writeAsStringSync(
+        file.readAsStringSync().replaceFirst('status: accepted\n', ''),
+      );
+      expect(() => parseEntry(path), throwsA(isA<DecisionParseException>()));
+
+      expectRefused(draft(), 'already recorded in $path');
+    });
+
+    test('a slug only an unparseable file name carries', () {
+      final path = p.join(registerPath, '2026-01-01-new-rule.md');
+      File(path)
+        ..createSync(recursive: true)
+        ..writeAsStringSync('# Old\n');
+
+      expectRefused(draft(), 'already recorded in $path');
+    });
+
     test('a body carrying its own H1', () {
       expectRefused(draft(body: '# Title\n\n$_body'), 'must not carry an H1');
+    });
+
+    test('a body carrying a setext H1', () {
+      expectRefused(
+        draft(body: 'Big Title\n=========\n\n$_body'),
+        'must not carry an H1',
+      );
+    });
+
+    test('a required section only inside a longer fence', () {
+      expectRefused(
+        draft(
+          body:
+              '## Context and Problem Statement\n\nWhy.\n\n'
+              '````md\n```\n## Decision Outcome\n```\n````\n',
+        ),
+        '"## Decision Outcome"',
+      );
     });
 
     test('a body missing a required section', () {
@@ -266,6 +317,33 @@ void main() {
     expect(File(result.path).readAsStringSync(), contains('# example'));
   });
 
+  test('a shorter fence inside a longer one does not close it', () {
+    final result = record(
+      draft(body: '$_body\n````md\n```\n# example\n```\n````\n'),
+    );
+
+    expect(File(result.path).readAsStringSync(), contains('# example'));
+  });
+
+  test('a setext level-two heading is a section', () {
+    final result = record(
+      draft(
+        body: _body.replaceFirst(
+          '## Decision Outcome',
+          'Decision Outcome\n----------------',
+        ),
+      ),
+    );
+
+    expect(File(result.path).existsSync(), isTrue);
+  });
+
+  test('an = line under a list item is not a setext H1', () {
+    final result = record(draft(body: '$_body\n- item\n===\n'));
+
+    expect(File(result.path).existsSync(), isTrue);
+  });
+
   test('a roster-wide surface is accepted unresolved', () {
     final result = record(draft(surfaces: const ['roster:CLAUDE.md']));
 
@@ -286,9 +364,10 @@ void main() {
       draft(obsoletes: const ['old-rule'], updates: const ['base-rule']),
     );
 
+    final where = '--register $registerPath --repo-root $repoRoot';
     expect(result.nextSteps.map((step) => step.command), [
-      'decisions obsolete old-rule --by new-rule',
-      'decisions update base-rule --by new-rule',
+      'decisions obsolete old-rule --by new-rule $where',
+      'decisions update base-rule --by new-rule $where',
     ]);
 
     const mutations = DecisionMutationService();
@@ -307,6 +386,32 @@ void main() {
     expect(
       linter.lint(registerPath: registerPath, repoRoot: repoRoot).isClean,
       isTrue,
+    );
+  });
+
+  test('a local next step names only a non-default register and root', () {
+    DecisionNextStep step({String? registerPath, String? repoRoot}) =>
+        DecisionNextStep(
+          kind: DecisionEdgeKind.updates,
+          target: 'base-rule',
+          successor: 'new-rule',
+          registerPath: registerPath,
+          repoRoot: repoRoot,
+        );
+
+    expect(
+      step(registerPath: 'docs/decisions', repoRoot: '.').command,
+      'decisions update base-rule --by new-rule',
+    );
+    expect(
+      step(registerPath: 'myrepo/docs/decisions', repoRoot: 'myrepo').command,
+      'decisions update base-rule --by new-rule '
+      '--register myrepo/docs/decisions --repo-root myrepo',
+    );
+    expect(
+      step(registerPath: "my repo's/docs/decisions").command,
+      'decisions update base-rule --by new-rule '
+      "--register 'my repo'\\''s/docs/decisions'",
     );
   });
 

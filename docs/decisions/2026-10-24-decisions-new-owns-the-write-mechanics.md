@@ -10,11 +10,14 @@ register:
   spec: 1
   slug: decisions-new-owns-the-write-mechanics
   surfaces:
+    - "SPEC.md"
+    - "README.md"
     - "cli/dart/decisions/lib/src/record.dart"
     - "cli/dart/decisions/lib/src/new_command.dart"
     - "skills/decide/SKILL.md"
   obsoletes: []
-  updates: []
+  updates:
+    - "the-decision-register"
   obsoleted-by: null
   updated-by: []
   bead: "dec-dmq"
@@ -43,9 +46,12 @@ by a program. On 2026-10-24 nico ruled the scope of the wider change: `decisions
 
 **`decisions new <slug>` owns the write mechanics; the `decide` skill owns judgement.**
 
-1. **One verb, both hosts.** `new` is wired into the shared verb list, so the standalone
-   `decisions` binary and a composed `<station> decisions` group expose the same command. Its
-   `--help` is bounded and names the required inputs
+1. **One verb, both hosts, one tier-1 contract.** `new` joins the tier-1 verbs
+   `the-decision-register` defines, and `SPEC.md` § Recording states its behaviour so another
+   implementation can build it from the spec alone. It is wired into the shared verb list, so the
+   standalone `decisions` binary and a composed `<station> decisions` group expose the same
+   command. Its `--help` is bounded and carries its own contract — the required inputs, the exit
+   codes, that a refusal writes nothing, and the `next:` lines
    (`memento-engineering#a-station-explains-itself-through-prime-and-bounded-help`).
 2. **Inputs.** `--title`, `--body <path|->` (the Markdown after the H1), at least one `--surface`
    and at least one `--decision-maker` are required. `--consulted`, `--informed`, `--obsoletes`
@@ -53,20 +59,24 @@ by a program. On 2026-10-24 nico ruled the scope of the wider change: `decisions
    `--register` to `docs/decisions`, `--repo-root` to `.`; `--roster` resolves `<repo>#<slug>`
    edges exactly as the force verbs do. A missing required input is a usage error.
 3. **Refusals, in order, each exiting 1 with nothing written:** a slug that is not kebab-case of at
-   most 80 characters; a slug any entry in the register already holds, or a target file that
-   already exists, named so the author can cite it instead; a body with an H1 of its own or
-   without level-two `Context and Problem Statement` and `Decision Outcome` sections; a qualified
+   most 80 characters; a slug any file in the register already claims — parsed or not — or a
+   target file that already exists, named so the author can cite it instead; a body with an H1 of
+   its own or without level-two `Context and Problem Statement` and `Decision Outcome` sections,
+   judged by CommonMark's fence and heading rules (a floor for the write path, not a lint rule:
+   lint requires no section, so hand-written entries stay valid); a qualified
    edge naming the entry's own register; and any lint diagnostic against the new file when a copy
    of the register plus the new entry is linted the way force mutations lint their candidates —
    same origin-register shape, same roster, roster-wide surfaces exempt. Dirt elsewhere in the
    register is not this write's to fix and does not block it.
 4. **Birth values are written, never typed.** `status: accepted`, `spec: 1`, `obsoleted-by: null`,
-   `updated-by: []`, `legacy-id: null`; every free-text value is a double-quoted scalar. The
-   register directory is created when absent.
+   `updated-by: []`, `legacy-id: null`; every free-text value and the slug is a double-quoted
+   scalar, so a slug such as `null` or `123` stays a string. The register directory is created
+   when absent.
 5. **Edges are completed by a separate act.** The verb prints the written path, the `repo#slug`
    handle, and one `next:` line per authored edge naming the force verb that writes the target's
-   cache (`decisions update <target> --by <slug>`, `decisions obsolete <target> --by <slug>`). A
-   target in another register is named with the register to run in and the qualified successor.
+   cache (`decisions update <target> --by <slug>`, `decisions obsolete <target> --by <slug>`),
+   carrying any non-default `--register` and `--repo-root` so it runs as printed. A target in
+   another register is named with the register to run in and the qualified successor.
    `new` never rewrites another entry, keeping the separate-acts rule in `SPEC.md`.
 
 The skill keeps what a program cannot check: whether to record, deriving governed surfaces from

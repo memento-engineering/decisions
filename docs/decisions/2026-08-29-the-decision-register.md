@@ -14,6 +14,7 @@ register:
   updates: []
   obsoleted-by: null
   updated-by:
+    - decisions-new-owns-the-write-mechanics
     - docket-triggers
     - entry-identity
     - force-mutations-scope-cleanliness-to-touched-entries

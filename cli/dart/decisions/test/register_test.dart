@@ -79,6 +79,7 @@ void main() {
           'docket-triggers',
           'lexical-precedent-search',
           'force-mutations-scope-cleanliness-to-touched-entries',
+          'decisions-new-owns-the-write-mechanics',
         ]),
       );
     });

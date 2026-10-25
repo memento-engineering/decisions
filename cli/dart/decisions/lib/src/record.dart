@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
+import 'package:yaml/yaml.dart';
 
 import 'entry.dart';
 import 'graph.dart';
@@ -72,6 +73,8 @@ final class DecisionNextStep {
     required this.target,
     required this.successor,
     this.register,
+    this.registerPath,
+    this.repoRoot,
   });
 
   /// The authored edge this step completes.
@@ -87,6 +90,14 @@ final class DecisionNextStep {
   /// The register the verb runs in, or null for the new entry's own register.
   final String? register;
 
+  /// For a step in the new entry's own register, the `--register` path the
+  /// entry was written through; [command] omits the default `docs/decisions`.
+  final String? registerPath;
+
+  /// For a step in the new entry's own register, the `--repo-root` the entry
+  /// was written against; [command] omits the default `.`.
+  final String? repoRoot;
+
   /// The force verb that writes the target's cache for this edge.
   String get verb => switch (kind) {
     DecisionEdgeKind.obsoletes => 'obsolete',
@@ -94,14 +105,29 @@ final class DecisionNextStep {
   };
 
   /// The command line, naming the register to run it in when it is not the
-  /// new entry's own.
+  /// new entry's own, and otherwise carrying any non-default `--register` and
+  /// `--repo-root`, so it runs as printed from where `new` ran.
   String get command {
     final invocation = 'decisions $verb $target --by $successor';
     return switch (register) {
-      null => invocation,
+      null => [
+        invocation,
+        if (registerPath case final path?
+            when p.normalize(path) != p.normalize('docs/decisions'))
+          '--register ${_shellWord(path)}',
+        if (repoRoot case final root? when p.normalize(root) != '.')
+          '--repo-root ${_shellWord(root)}',
+      ].join(' '),
       final register => '$invocation (run in register $register)',
     };
   }
+
+  static final _plainWord = RegExp(r'^[A-Za-z0-9_./@%+=:,-]+$');
+
+  /// [value] as one POSIX shell word.
+  static String _shellWord(String value) => _plainWord.hasMatch(value)
+      ? value
+      : "'${value.replaceAll("'", r"'\''")}'";
 
   @override
   String toString() => command;
@@ -186,9 +212,24 @@ final class DecisionRecordService implements DecisionRecorder {
 
   static final _slugPattern = RegExp(r'^[a-z0-9]+(-[a-z0-9]+)*$');
   static final _datePattern = RegExp(r'^\d{4}-\d{2}-\d{2}$');
-  static final _fence = RegExp(r'^ {0,3}(```|~~~)');
+  static final _fenceOpen = RegExp(r'^ {0,3}(`{3,}|~{3,})(.*)$');
+  static final _fenceClose = RegExp(r'^ {0,3}(`{3,}|~{3,})[ \t]*$');
   static final _h1 = RegExp(r'^ {0,3}#(?:[ \t]|$)');
   static final _h2 = RegExp(r'^ {0,3}##[ \t]+(.*?)(?:[ \t]+#+)?[ \t]*$');
+  static final _atx = RegExp(r'^ {0,3}#{1,6}(?:[ \t]|$)');
+  static final _setextUnderline = RegExp(r'^ {0,3}(=+|-+)[ \t]*$');
+  static final _thematicBreak = RegExp(
+    r'^ {0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$',
+  );
+  static final _containerStart = RegExp(
+    r'^ {0,3}(?:>|[-+*](?:[ \t]|$)|\d{1,9}[.)](?:[ \t]|$))',
+  );
+  static final _indentedCode = RegExp(r'^(?: {4}|\t)');
+  static final _datedFileName = RegExp(r'^\d{4}-\d{2}-\d{2}-(.+)\.md$');
+  static final _frontMatter = RegExp(
+    r'^---\r?\n(.*?)\r?\n---\r?\n',
+    dotAll: true,
+  );
 
   @override
   DecisionRecordResult record({
@@ -224,8 +265,8 @@ final class DecisionRecordService implements DecisionRecorder {
     }
     final fileName = '$date-${draft.slug}.md';
     final path = p.join(registerPath, fileName);
-    final existing = _existingEntries(registerPath);
-    _checkCollision(draft.slug, path, existing);
+    final (:existing, :unparsed) = _existingEntries(registerPath);
+    _checkCollision(draft.slug, path, existing, unparsed);
     final body = _checkBody(draft.body);
     _checkOwnRegisterEdges(draft, originRegister);
 
@@ -248,22 +289,20 @@ final class DecisionRecordService implements DecisionRecorder {
       path: path,
       citation: '$originRegister#${draft.slug}',
       nextSteps: [
-        for (final reference in draft.obsoletes)
-          _nextStep(
-            DecisionEdgeKind.obsoletes,
-            reference,
-            draft.slug,
-            originRegister,
-            existing,
-          ),
-        for (final reference in draft.updates)
-          _nextStep(
-            DecisionEdgeKind.updates,
-            reference,
-            draft.slug,
-            originRegister,
-            existing,
-          ),
+        for (final (kind, references) in [
+          (DecisionEdgeKind.obsoletes, draft.obsoletes),
+          (DecisionEdgeKind.updates, draft.updates),
+        ])
+          for (final reference in references)
+            _nextStep(
+              kind,
+              reference,
+              slug: draft.slug,
+              originRegister: originRegister,
+              registerPath: registerPath,
+              repoRoot: repoRoot,
+              existing: existing,
+            ),
       ],
     );
   }
@@ -271,8 +310,10 @@ final class DecisionRecordService implements DecisionRecorder {
   /// Renders the entry file for [draft]: front matter with birth values, the
   /// H1, then [body].
   ///
-  /// Every free-text value is a double-quoted YAML scalar, so names and globs
-  /// carrying `:`, `#`, quotes or YAML keywords round-trip unchanged.
+  /// Every free-text value, the slug included, is a double-quoted YAML
+  /// scalar, so names and globs carrying `:`, `#` or quotes, and slugs such
+  /// as `null`, `true` or `123` that YAML would read as a keyword or number,
+  /// round-trip unchanged.
   static String renderEntry({
     required DecisionDraft draft,
     required String date,
@@ -288,7 +329,7 @@ final class DecisionRecordService implements DecisionRecorder {
     buffer
       ..writeln('register:')
       ..writeln('  spec: ${DecisionLintService.supportedSpec}')
-      ..writeln('  slug: ${draft.slug}');
+      ..writeln('  slug: ${_scalar(draft.slug)}');
     _writeList(buffer, 'surfaces', draft.surfaces, indent: '  ');
     _writeList(buffer, 'obsoletes', draft.obsoletes, indent: '  ');
     _writeList(buffer, 'updates', draft.updates, indent: '  ');
@@ -351,30 +392,40 @@ final class DecisionRecordService implements DecisionRecorder {
     }
   }
 
-  /// The parseable entries already in the register; none when it is absent.
-  static List<DecisionEntry> _existingEntries(String registerPath) {
-    if (!Directory(registerPath).existsSync()) return const <DecisionEntry>[];
+  /// The parseable entries already in the register, and the files that
+  /// failed to parse; both empty when the register is absent.
+  static ({List<DecisionEntry> existing, List<String> unparsed})
+  _existingEntries(String registerPath) {
+    final unparsed = <String>[];
+    if (!Directory(registerPath).existsSync()) {
+      return (existing: const <DecisionEntry>[], unparsed: unparsed);
+    }
     try {
-      return readRegister(registerPath, onParseError: (_) {});
+      final existing = readRegister(
+        registerPath,
+        onParseError: (error) => unparsed.add(error.file),
+      );
+      return (existing: existing, unparsed: unparsed);
     } on FileSystemException catch (error) {
       throw DecisionRecordException(error.message);
     }
   }
 
+  /// Refuses when the target file exists, or when any entry — parseable or
+  /// not — already claims [slug].
   static void _checkCollision(
     String slug,
     String path,
     List<DecisionEntry> existing,
+    List<String> unparsed,
   ) {
-    final String? collision;
-    if (File(path).existsSync()) {
-      collision = path;
-    } else {
-      collision = existing
-          .where((entry) => entry.slug == slug)
-          .map((entry) => entry.file)
-          .firstOrNull;
-    }
+    final collision = File(path).existsSync()
+        ? path
+        : existing
+                  .where((entry) => entry.slug == slug)
+                  .map((entry) => entry.file)
+                  .firstOrNull ??
+              unparsed.where((file) => _claimsSlug(file, slug)).firstOrNull;
     if (collision != null) {
       throw DecisionRecordException(
         'slug "$slug" is already recorded in $collision; cite it if it is the '
@@ -383,27 +434,88 @@ final class DecisionRecordService implements DecisionRecorder {
     }
   }
 
+  /// Whether [file], an entry that failed to parse, still claims [slug]:
+  /// through a `<date>-<slug>.md` name, or a `register.slug` its front matter
+  /// carries in any scalar form.
+  static bool _claimsSlug(String file, String slug) {
+    if (_datedFileName.firstMatch(p.basename(file))?.group(1) == slug) {
+      return true;
+    }
+    try {
+      final match = _frontMatter.firstMatch(File(file).readAsStringSync());
+      if (match == null) return false;
+      final Object? document = loadYaml(match.group(1)!);
+      if (document is! Map) return false;
+      final Object? register = document['register'];
+      return register is Map && '${register['slug']}' == slug;
+    } on Exception {
+      return false;
+    }
+  }
+
+  static const _h1Refusal = DecisionRecordException(
+    'the body must not carry an H1; the title becomes the H1',
+  );
+
   /// Returns [body] trimmed, or refuses a body without the required sections
-  /// or with an H1 of its own. Lines inside fenced code blocks are not
-  /// headings.
+  /// or with an H1 of its own, ATX or setext.
+  ///
+  /// Headings follow CommonMark closely enough for this check: a fenced code
+  /// block closes only on a fence of its own character at least as long as
+  /// the opening one, and lines inside it are not headings; a setext
+  /// underline counts under a paragraph outside a list or block quote.
   static String _checkBody(String body) {
     final trimmed = body.trim();
     final sections = <String>{};
-    var fenced = false;
+    String? fence;
+    var paragraph = <String>[];
+    var inContainer = false;
     for (final line in const LineSplitter().convert(trimmed)) {
-      if (_fence.hasMatch(line)) {
-        fenced = !fenced;
+      if (fence != null) {
+        final close = _fenceClose.firstMatch(line)?.group(1);
+        if (close != null &&
+            close[0] == fence[0] &&
+            close.length >= fence.length) {
+          fence = null;
+        }
         continue;
       }
-      if (fenced) continue;
-      if (_h1.hasMatch(line)) {
-        throw const DecisionRecordException(
-          'the body must not carry an H1; the title becomes the H1',
-        );
+      if (line.trim().isEmpty) {
+        paragraph = <String>[];
+        inContainer = false;
+        continue;
       }
+      if (paragraph.isNotEmpty && !inContainer) {
+        if (_setextUnderline.firstMatch(line)?.group(1) case final underline?) {
+          if (underline.startsWith('=')) throw _h1Refusal;
+          sections.add(paragraph.map((text) => text.trim()).join(' '));
+          paragraph = <String>[];
+          continue;
+        }
+      }
+      if (_fenceOpen.firstMatch(line) case final open?
+          when !(open.group(1)!.startsWith('`') &&
+              open.group(2)!.contains('`'))) {
+        fence = open.group(1);
+        paragraph = <String>[];
+        continue;
+      }
+      if (_h1.hasMatch(line)) throw _h1Refusal;
       if (_h2.firstMatch(line) case final match?) {
         sections.add(match.group(1)!);
       }
+      if (_atx.hasMatch(line) || _thematicBreak.hasMatch(line)) {
+        paragraph = <String>[];
+        continue;
+      }
+      if (_containerStart.hasMatch(line)) {
+        paragraph = <String>[];
+        inContainer = true;
+        continue;
+      }
+      if (inContainer) continue;
+      if (paragraph.isEmpty && _indentedCode.hasMatch(line)) continue;
+      paragraph.add(line);
     }
     final missing = requiredSections.where((name) => !sections.contains(name));
     if (missing.isNotEmpty) {
@@ -487,11 +599,13 @@ final class DecisionRecordService implements DecisionRecorder {
 
   DecisionNextStep _nextStep(
     DecisionEdgeKind kind,
-    String reference,
-    String slug,
-    String originRegister,
-    List<DecisionEntry> existing,
-  ) {
+    String reference, {
+    required String slug,
+    required String originRegister,
+    required String registerPath,
+    required String repoRoot,
+    required List<DecisionEntry> existing,
+  }) {
     final qualified = DecisionReference.parse(reference);
     if (qualified == null) {
       final target = existing
@@ -503,6 +617,8 @@ final class DecisionRecordService implements DecisionRecorder {
         kind: kind,
         target: target?.slug ?? reference,
         successor: slug,
+        registerPath: registerPath,
+        repoRoot: repoRoot,
       );
     }
     return DecisionNextStep(

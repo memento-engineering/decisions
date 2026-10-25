@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:args/command_runner.dart';
 
@@ -105,7 +106,12 @@ final class DecisionNewCommand extends Command<int> {
 
   @override
   String get description =>
-      'Record a decision: check identity and body, lint, write.';
+      'Record a decision: check identity and body, lint, write.\n'
+      '\n'
+      'Exits 0 when written, printing the path, the <repo>#<slug> handle and '
+      'one "next:" line per --obsoletes or --updates edge: the force verb '
+      'still to run so the target caches this entry. Exits 1 when refused, '
+      'having written nothing; a malformed invocation is a usage error.';
 
   @override
   String get invocation => super.invocation.replaceFirst(
@@ -144,6 +150,9 @@ final class DecisionNewCommand extends Command<int> {
           ? _readInput()
           : File(bodySource).readAsStringSync();
     } on FileSystemException catch (error) {
+      _error.writeln('error: cannot read body $bodySource: ${error.message}');
+      return 1;
+    } on FormatException catch (error) {
       _error.writeln('error: cannot read body $bodySource: ${error.message}');
       return 1;
     }
@@ -189,13 +198,20 @@ final class DecisionNewCommand extends Command<int> {
     );
   }
 
+  /// Reads standard input as UTF-8; invalid bytes throw a [FormatException],
+  /// which [run] reports as a refusal.
   static String _readStdin() {
-    final lines = <String>[];
+    // Latin-1 maps every byte to one code unit, so it carries the raw bytes
+    // through line reading for a strict UTF-8 decode of the whole input.
+    final bytes = BytesBuilder(copy: false);
     String? line;
-    while ((line = stdin.readLineSync(encoding: utf8, retainNewlines: true)) !=
+    while ((line = stdin.readLineSync(
+          encoding: latin1,
+          retainNewlines: true,
+        )) !=
         null) {
-      lines.add(line!);
+      bytes.add(latin1.encode(line!));
     }
-    return lines.join();
+    return utf8.decode(bytes.takeBytes());
   }
 }

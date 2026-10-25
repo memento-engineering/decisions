@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:args/command_runner.dart';
@@ -68,12 +69,13 @@ void main() {
     List<String> args, {
     required DecisionRecorder recorder,
     String stdinText = '',
+    DecisionInputReader? readInput,
   }) {
     final runner = CommandRunner<int>('decisions', 'fixture')
       ..addCommand(
         DecisionNewCommand(
           recorder: recorder,
-          readInput: () => stdinText,
+          readInput: readInput ?? () => stdinText,
           output: output,
           error: error,
         ),
@@ -213,6 +215,30 @@ void main() {
     expect(error.toString(), startsWith('error: cannot read body'));
   });
 
+  test('a body on stdin that is not UTF-8 exits 1 before recording', () async {
+    final recorder = FakeDecisionRecorder();
+
+    final code = await run(
+      [
+        'a-rule',
+        '--title',
+        'A rule',
+        '--body',
+        '-',
+        '--surface',
+        'lib/**',
+        '--decision-maker',
+        'nico',
+      ],
+      recorder: recorder,
+      readInput: () => utf8.decode([0xff, 0xfe]),
+    );
+
+    expect(code, 1);
+    expect(recorder.drafts, isEmpty);
+    expect(error.toString(), startsWith('error: cannot read body -'));
+  });
+
   group('a missing required input is a usage error', () {
     const complete = [
       'a-rule',
@@ -256,6 +282,15 @@ void main() {
     expect(text, contains('Usage: decisions new <slug>'));
     for (final flag in ['--title', '--body', '--surface', '--decision-maker']) {
       expect(text, contains(flag));
+    }
+    // The contract: exit codes, refusal semantics, and the next steps.
+    for (final clause in [
+      'Exits 0 when written',
+      'Exits 1 when refused, having written nothing',
+      'usage error',
+      '"next:" line',
+    ]) {
+      expect(text, contains(clause));
     }
     expect(text.split('\n').length, lessThan(40));
   });
