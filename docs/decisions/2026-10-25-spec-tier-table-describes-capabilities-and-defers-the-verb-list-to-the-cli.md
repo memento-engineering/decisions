@@ -11,6 +11,7 @@ register:
   surfaces:
     - "SPEC.md"
     - "README.md"
+    - "templates/view.md"
     - "cli/dart/decisions/test/user_docs_test.dart"
   obsoletes: []
   updates: []
@@ -57,11 +58,15 @@ says that the README and `decisions --help` list the current verbs.
 2. **The README stays the inventory.** Its tier row and its Status section stay pinned to the
    command runner by `test/user_docs_test.dart`, as before.
 3. **A test keeps `SPEC.md` from drifting back.** `test/user_docs_test.dart` now fails when the
-   `SPEC.md` tier-1 row carries a code span, and when any `decisions <verb>` code span in `SPEC.md`
-   names a verb the binary lacks.
+   `SPEC.md` tier-1 row carries a code span, and when `SPEC.md` names a verb the binary lacks,
+   either as a `decisions <verb>` code span or as a bare span in the list that follows one, as in
+   "`decisions obsolete`, `update` and `vacate`".
+4. **The view template stops naming the verb.** The header of `templates/view.md`, which every
+   rendered view carries, said views were generated "by decisions render". It now says only that
+   they are generated from decision entries.
 
-An exact, pinned list in `SPEC.md` is rejected because it would make every new verb a change to the normative text with no change to the format,
-and would demand a register entry for each one.
+An exact, pinned list in `SPEC.md` is rejected because it would make every new verb a change to
+the normative text with no change to the format, and would demand a register entry for each one.
 
 This changes no format rule. Entries stay at `register.spec: 1`, as
 [spec-and-artifact-versioning](2026-08-30-spec-and-artifact-versioning.md) requires when the format

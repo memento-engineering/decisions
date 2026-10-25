@@ -75,10 +75,20 @@ void main() {
     });
 
     test('and every verb it does name is one the binary has', () {
-      final named = RegExp(
-        '`decisions ([a-z][a-z-]*)',
-      ).allMatches(spec).map((match) => match[1]!).toSet();
-      expect(named, isNotEmpty);
+      // A `decisions <verb>` span, and the bare spans listed after it, as in
+      // "`decisions obsolete`, `update` and `vacate`".
+      final named = <String>{};
+      for (final match in RegExp(
+        r'`decisions ([a-z][a-z-]*)[^`]*`'
+        r'((?:,\s+`[a-z][a-z-]*`)*(?:,?\s+and\s+`[a-z][a-z-]*`)?)',
+      ).allMatches(spec)) {
+        named
+          ..add(match[1]!)
+          ..addAll(
+            RegExp('`([a-z][a-z-]*)`').allMatches(match[2]!).map((m) => m[1]!),
+          );
+      }
+      expect(named, containsAll(['lint', 'update', 'vacate']));
       for (final verb in named) {
         expect(verbs, contains(verb), reason: verb);
       }
