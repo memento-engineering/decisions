@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:decisions/decisions.dart';
@@ -168,19 +169,24 @@ void main() {
         expect(decisionOriginRegister(register), 'grid');
       });
 
-      test('linked to its repo names the repo, not a differing substation', () {
-        final main = mainCheckout('memento-engineering');
-        final register = registerAt([
-          'memento-engineering',
-          '.grid',
-          'worktrees',
-          'manual',
-          'org-2ra',
-        ]);
-        linkWorktree(p.dirname(p.dirname(register)), main, id: 'org-2ra');
+      test(
+        'linked to a checkout named otherwise still names the substation',
+        () {
+          // The grid provisions genesis's lanes in a `genesis-grid` checkout:
+          // the lane is the genesis register, not a register of its own.
+          final main = mainCheckout('genesis-grid');
+          final register = registerAt([
+            'genesis-grid',
+            '.grid',
+            'worktrees',
+            'genesis',
+            'genesis-7r9',
+          ]);
+          linkWorktree(p.dirname(p.dirname(register)), main, id: 'genesis-7r9');
 
-        expect(decisionOriginRegister(register), 'memento-engineering');
-      });
+          expect(decisionOriginRegister(register), 'genesis');
+        },
+      );
     });
 
     group('a .git file it cannot follow falls back to the directory', () {
@@ -239,6 +245,51 @@ void main() {
   });
 
   group('a linked worktree reads as its own repository', () {
+    test('index run from the worktree with its default relative register '
+        'path names the repository', () async {
+      final main = mainCheckout('alpha');
+      final checkout = p.join(main, '.claude', 'worktrees', 'wt');
+      final register = Directory(p.join(checkout, 'docs', 'decisions'))
+        ..createSync(recursive: true);
+      linkWorktree(checkout, main, id: 'wt');
+      File(p.join(register.path, '2026-02-01-x.md')).writeAsStringSync('''
+---
+status: accepted
+date: 2026-02-01
+decision-makers: [fixture]
+register:
+  spec: 1
+  slug: x
+  surfaces: ["lib/**"]
+  obsoletes: []
+  updates: []
+  obsoleted-by: null
+  updated-by: []
+  bead: null
+  legacy-id: null
+---
+
+# x
+''');
+
+      // The working directory is process-wide, so the CLI runs in its own
+      // process from the worktree rather than moving this one there.
+      final result = await Process.run(Platform.resolvedExecutable, [
+        p.absolute('bin', 'decisions.dart'),
+        'index',
+      ], workingDirectory: checkout);
+
+      expect(result.exitCode, 0, reason: '${result.stderr}');
+      final decisions =
+          (jsonDecode(result.stdout as String)
+                  as Map<String, Object?>)['decisions']!
+              as List<Object?>;
+      expect(
+        (decisions.single! as Map<String, Object?>)['originRegister'],
+        'alpha',
+      );
+    });
+
     test('lint resolves a sibling edge naming the repo, not the worktree', () {
       final main = mainCheckout('alpha');
       final checkout = p.join(main, '.claude', 'worktrees', 'wt');

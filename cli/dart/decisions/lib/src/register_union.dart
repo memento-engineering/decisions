@@ -75,7 +75,7 @@ final class DecisionRegisterUnion implements DecisionRoster {
     final diagnostics = <DecisionLintDiagnostic>[];
     final registersByName = <String, DecisionRegisterSnapshot>{};
     for (final path in paths) {
-      final name = decisionOriginRegister(path);
+      final name = decisionOriginRegister(p.absolute(path));
       final previous = registersByName[name];
       if (previous != null) {
         throw DecisionRegisterUnionException(
@@ -365,34 +365,38 @@ class DecisionRegisterUnionException implements Exception {
 
 /// Infers the cross-register namespace a register directory publishes under.
 ///
-/// `<repo>/docs/decisions` names `<repo>`. When `<repo>` is a linked git
-/// worktree, its `.git` a file reading `gitdir: <main>/.git/worktrees/<id>`,
-/// the register names the main checkout the worktree belongs to, so a
-/// worktree such as `<main>/.claude/worktrees/<id>` publishes under the same
-/// name as the checkout it was made from. The main checkout is found by
-/// reading the worktree's `commondir` file or, without one, by walking up
-/// from `<main>/.git/worktrees/<id>`; nothing is spawned and nothing leaves
-/// the disk. A `.git` file this cannot follow (a submodule, a separate git
+/// A provisioned grid worktree under
+/// `<repo>/.grid/worktrees/<substation>/<bead>/docs/decisions` names the
+/// substation rather than the bead or the checkout holding it: the grid
+/// provisions a store's lanes in a checkout whose directory need not carry
+/// the store's name (`genesis-grid/.grid/worktrees/genesis/<bead>` is the
+/// `genesis` register).
+///
+/// Otherwise `<repo>/docs/decisions` names `<repo>`. When `<repo>` is a
+/// linked git worktree, its `.git` a file reading
+/// `gitdir: <main>/.git/worktrees/<id>`, the register names the main checkout
+/// the worktree belongs to, so a worktree such as
+/// `<main>/.claude/worktrees/<id>` publishes under the same name as the
+/// checkout it was made from. The main checkout is found by reading the
+/// worktree's `commondir` file or, without one, by walking up from
+/// `<main>/.git/worktrees/<id>`; nothing is spawned and nothing leaves the
+/// disk. A `.git` file this cannot follow (a submodule, a separate git
 /// directory, a broken pointer) falls back to the directory-name rule.
 ///
-/// Absent that resolution, a provisioned grid worktree under
-/// `<repo>/.grid/worktrees/<substation>/<bead>/docs/decisions` names the
-/// substation rather than the bead.
+/// Both rules read the path's segments, so pass an absolute path: a relative
+/// `docs/decisions` has no `<repo>` segment and names `decisions`.
 String decisionOriginRegister(String registerPath) {
   final parts = p.split(p.normalize(registerPath));
   if (parts.length >= 3 &&
       parts.last == 'decisions' &&
       parts[parts.length - 2] == 'docs') {
-    final linked = _linkedWorktreeRepository(
-      p.joinAll(parts.take(parts.length - 2)),
-    );
-    if (linked != null) return linked;
     if (parts.length >= 6 &&
         parts[parts.length - 6] == '.grid' &&
         parts[parts.length - 5] == 'worktrees') {
       return parts[parts.length - 4];
     }
-    return parts[parts.length - 3];
+    return _linkedWorktreeRepository(p.joinAll(parts.take(parts.length - 2))) ??
+        parts[parts.length - 3];
   }
   final name = p.basename(p.normalize(registerPath));
   if (name.isEmpty || name == p.separator) {
