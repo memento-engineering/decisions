@@ -41,7 +41,8 @@ named beside each one fails, and its generator (`assets install`, `generate_grid
 
 - `grid_assets/.../extension/station_overlay/claude/skills/**` mirrors `skills/**` byte for byte
   (`decide_skill_test.dart`, `ratify_skill_test.dart`, `asset_pack_test.dart`).
-- `grid_assets/.../extension/rubrics/decision-alignment.md` mirrors `rubrics/`.
+- `grid_assets/.../extension/rubrics/decision-alignment.md` mirrors `rubrics/`
+  (`asset_pack_test.dart`).
 - `grid_assets/.../lib/src/assets/grid_asset_pack.dart` is generated from the `grid:` block of
   `grid_assets/decisions_grid_assets/pubspec.yaml`. Regenerate with
   `dart run tool/generate_grid_assets.dart`; CI checks it with `--check`.

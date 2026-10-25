@@ -161,6 +161,37 @@ exit $exitCode
       expect(result.stdout, contains('brew install'));
     });
 
+    /// Puts a `decisions` without exec bits in its own directory, for a PATH
+    /// to name ahead of (or instead of) [fakeDir].
+    String nonExecutableDecisions() {
+      final dir = Directory(p.join(sandbox.path, 'nx'))..createSync();
+      File(p.join(dir.path, 'decisions')).writeAsStringSync('not a binary\n');
+      return dir.path;
+    }
+
+    test(
+      'skips a non-executable decisions earlier on PATH, as agents do',
+      () async {
+        final nx = nonExecutableDecisions();
+        await fakeDecisions(stdout: 'ok\n', exitCode: 0);
+
+        final result = await runShim(path: '$nx:$fakeDir:/usr/bin:/bin');
+
+        expect(result.exitCode, 0);
+        expect(result.stdout, 'ok\n');
+      },
+    );
+
+    test('fails when the only decisions on PATH is not executable', () async {
+      final nx = nonExecutableDecisions();
+
+      final result = await runShim(path: '$nx:/usr/bin:/bin');
+
+      expect(result.exitCode, 2);
+      expect(firstLine(result), 'decisions on PATH is not executable');
+      expect(result.stdout, contains('brew install'));
+    });
+
     for (final code in [0, 1, 2]) {
       test('passes exit $code and stdout through, without stderr', () async {
         const report = 'worst finding line (and 1 more)\n  detail line\n';

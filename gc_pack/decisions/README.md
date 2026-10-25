@@ -96,14 +96,24 @@ agent works a register: the mayor's working directory is the city root, which us
 - **One skill channel per rig.** A gc rig gets its skills from this pack; a station-managed rig
   from its overlay; anything else from `decisions skills install .claude/skills`. A rig with
   committed stubs *and* this pack sees both `decide` and `decisions.decide`.
+- **One pin per city** (*v1.5.1*). gc allows a single `sha:` for this source across the whole
+  city: every `[rigs.imports.*]`, `[defaults.rig.imports.*]` and `[imports.*]` table that names it
+  must carry the same `version`, or `gc import install` and `gc import add` fail with
+  `incompatible pinned versions`.
 - **Do not use `gc rig add --include` for this pack** (*v1.5.1*). It writes the import with no
-  version, and `gc import install` then fails with `no semver tags found`, because this repo's
-  tags are prefixed.
-- **Upgrade** by editing `version` to the new release's commit, then running `gc import install`
-  and `gc import check`. Upgrade the binary to the same release. Running `import add` again fails
-  with `import "decisions" already exists`; `gc [--rig app] import remove decisions` followed by
-  `add` also works.
-- **After a cache wipe** the skills disappear from `gc skill list` until `gc import install` runs.
+  version. If that is the source's only import, `gc import install` fails with
+  `no semver tags found`, because this repo's tags are prefixed. If another import already pins
+  the source, install succeeds and the unpinned import quietly follows that pin, then fails
+  once that pin is gone.
+- **Upgrade** by moving every `version` that names this source to the new release's commit in
+  one edit, the defaults table included, then running `gc import install` and `gc import check`.
+  Upgrade the binary to the same release. Moving only one import fails with
+  `incompatible pinned versions`, and running `import add` again fails with
+  `import "decisions" already exists`.
+- **After a cache wipe** (*v1.5.1*) the whole city fails to load, not just this pack:
+  `gc skill list` and `gc config show` exit 1 for every agent, the mayor included, with
+  `remote import ... is locked but not cached`. The `decisions:binary` check is not registered
+  then, so it cannot report the problem. Run `gc import install` to refill the cache.
 
 ## The doctor check
 
@@ -115,7 +125,7 @@ gc doctor --check decisions:binary
 |---|---|
 | ok | `decisions` is installed and these stubs are exactly what it would write |
 | warning | the binary works but the stubs differ from it, or it carries a guide this pack lacks: move the pin or the binary so they match |
-| error | `decisions` is not on `PATH`, predates `decisions doctor`, or lacks a guide a stub names |
+| error | `decisions` is not on `PATH` or not executable, predates `decisions doctor`, or lacks a guide a stub names |
 
 The check runs at `gc start` too. A warning or error there is mailed to the mayor on every start
 until it is fixed.

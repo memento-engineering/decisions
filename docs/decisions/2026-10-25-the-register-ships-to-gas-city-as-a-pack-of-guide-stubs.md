@@ -60,9 +60,10 @@ at `gc_pack/decisions/`, and the pack carries no instruction text of its own.**
    and run from the city root, so `gc decisions lint` would lint the wrong directory. No overlay:
    an `AGENTS.md` or `CLAUDE.md` overlay would clobber the rig's own, and a `SessionStart` hook is
    ruled out (nico, 2026-10-24). No rubric: gc has no committee surface. No pack `version` or
-   `requires_gc`: the first is metadata only and v1.5.1 never reads the second. No orders: a
-   rig-scoped exec order is quiet when it fails and writes a tracking bead into each rig's tracker
-   on every run.
+   `requires_gc`: the first is metadata only and v1.5.1 never reads the second. No orders in this
+   version, and this entry does not rule on them: whether the pack should ship a rig-scoped
+   register-health order awaits nico's ruling. A spike found that such an order is quiet when it
+   fails and records an ephemeral tracking wisp on every run.
 5. **It never installs the binary.** There is no `fix.sh`, so `gc doctor --fix` never mutates a
    toolchain.
 6. **Imports are rig-level by default, pinned by `sha:`** of the commit a `decisions-v` tag points
@@ -82,5 +83,5 @@ without gc, the pack or the binary.
 * Bad, because a skill description change now means regenerating the pack stubs as well as
   `guides.g.dart`, and once it ships, `decisions:binary` warns in every rig whose binary and pin
   come from different sides of it until the operator moves one of them.
-* Bad, because without orders or a hook nothing in gc checks a rig's register; that is left to
-  each rig's CI.
+* Bad, because while the pack has no order, nothing in gc checks a rig's register; that is left
+  to each rig's CI.
