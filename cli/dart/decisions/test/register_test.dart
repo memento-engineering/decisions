@@ -64,6 +64,10 @@ void main() {
             'register'],
         'dec-2nx',
       );
+      expect(
+        beads['templates-style-md-is-the-starter-style-guide-for-a-register'],
+        'dec-1ee',
+      );
       beads.remove('docket-triggers');
       beads.remove('lexical-precedent-search');
       beads.remove('force-mutations-scope-cleanliness-to-touched-entries');
@@ -81,6 +85,9 @@ void main() {
       );
       beads.remove(
         'decisions-doctor-answers-whether-this-binary-can-work-this-register',
+      );
+      beads.remove(
+        'templates-style-md-is-the-starter-style-guide-for-a-register',
       );
       expect(beads.values, everyElement(isNull));
       expect(entries.map((entry) => entry.legacyId), everyElement(isNull));

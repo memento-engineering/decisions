@@ -31,7 +31,8 @@ void main() {
     // then the CLI's distribution, which governs tooling and amends no format
     // decision, then register documents, which add to the format without
     // amending an entry, then the binary's agent instructions, which govern
-    // tooling, then the doctor verb, which governs tooling.
+    // tooling, then the doctor verb, which governs tooling, then the starter
+    // style guide, which adds a template without amending an entry.
     expect(views.map((view) => view.fileName), [
       '0001-the-decision-register.md',
       '0002-the-decisions-cli-ships-as-prebuilt-binaries.md',
@@ -40,6 +41,7 @@ void main() {
       '0004-the-decisions-binary-carries-its-own-agent-instructions.md',
       '0005-decisions-doctor-answers-whether-this-binary-can-work-this-'
           'register.md',
+      '0006-templates-style-md-is-the-starter-style-guide-for-a-register.md',
     ]);
     final combined = views.map((view) => view.content).join('\n');
     final graph = DecisionGraph(readRegister(_selfHostedRegister));
@@ -47,7 +49,7 @@ void main() {
         .where((entry) => graph.isBinding(entry.slug))
         .toList();
 
-    expect(binding, hasLength(15));
+    expect(binding, hasLength(16));
     for (final entry in binding) {
       expect(combined, contains('<a id="${entry.slug}"></a>'));
     }
@@ -102,7 +104,7 @@ void main() {
     );
     final views = renderViews(graph: graph, template: template);
 
-    expect(views, hasLength(5));
+    expect(views, hasLength(6));
     for (final view in views) {
       expect(view.content, startsWith('<!-- layout sentinel -->'));
     }
