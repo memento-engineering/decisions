@@ -8,6 +8,7 @@ import 'index_command.dart';
 import 'legacy.dart';
 import 'lint.dart';
 import 'mutation.dart';
+import 'new_command.dart';
 import 'register_union.dart';
 import 'search_command.dart';
 import 'version.dart';
@@ -139,6 +140,12 @@ List<Command<int>> _verbs({
     _MigrateLegacyCommand(
       converter: legacyConverter ?? const LegacyRegisterConversionService(),
       output: resolvedOutput,
+    ),
+    DecisionNewCommand(
+      linter: linter,
+      registerPaths: resolvedRegisterPaths,
+      output: resolvedOutput,
+      error: resolvedError,
     ),
     for (final verb in _ForceVerb.values)
       _MutationCommand(

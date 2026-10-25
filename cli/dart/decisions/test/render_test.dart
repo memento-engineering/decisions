@@ -27,9 +27,10 @@ void main() {
       outputDirectory: output,
     );
 
-    // The format's lineage, then the CLI's distribution, which governs
-    // tooling and amends no format decision, then register documents, which
-    // add to the format without amending an entry.
+    // The format's lineage, which the write verb amends as a tier-1 verb,
+    // then the CLI's distribution, which governs tooling and amends no format
+    // decision, then register documents, which add to the format without
+    // amending an entry.
     expect(views.map((view) => view.fileName), [
       '0001-the-decision-register.md',
       '0002-the-decisions-cli-ships-as-prebuilt-binaries.md',
@@ -42,7 +43,7 @@ void main() {
         .where((entry) => graph.isBinding(entry.slug))
         .toList();
 
-    expect(binding, hasLength(11));
+    expect(binding, hasLength(12));
     for (final entry in binding) {
       expect(combined, contains('<a id="${entry.slug}"></a>'));
     }

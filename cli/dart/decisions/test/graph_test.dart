@@ -92,14 +92,14 @@ void main() {
     });
   });
 
-  test('self-hosted register reports six updates and binding force', () {
+  test('self-hosted register reports seven updates and binding force', () {
     final graph = DecisionGraph(readRegister(_selfHostedRegister));
     final updatedBy = graph
         .updatedBy('the-decision-register')
         .map((entry) => entry.slug)
         .toList();
 
-    expect(updatedBy, hasLength(6));
+    expect(updatedBy, hasLength(7));
     expect(
       updatedBy,
       unorderedEquals([
@@ -109,6 +109,7 @@ void main() {
         'docket-triggers',
         'lexical-precedent-search',
         'force-mutations-scope-cleanliness-to-touched-entries',
+        'decisions-new-owns-the-write-mechanics',
       ]),
     );
     expect(graph.forceOf('the-decision-register'), DecisionForce.binding);

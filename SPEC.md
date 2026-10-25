@@ -241,12 +241,39 @@ and `snippet`. The independent search-output schema is 1; it does not change dec
 1. A snippet is one matching line capped at 160 characters, including any leading and trailing
 ellipses. Parse diagnostics remain visible separately from hits, including on a zero-hit result.
 
+## Recording
+
+`decisions new <slug>` is the tier-1 write path. The author supplies the judgement — a title, the
+body after the H1, at least one surface and at least one decision-maker, and any `consulted`,
+`informed`, `obsoletes`, `updates`, `bead` and `date` (today, local time, when omitted) — and the
+verb does the mechanics. It refuses, exiting `1` and writing nothing, on:
+
+1. a slug that is not lowercase kebab-case of at most 80 characters;
+2. a slug any file in the register already claims — a parsed entry, an unparseable entry whose
+   front matter or `<date>-<slug>.md` name carries it, or the target file itself;
+3. a body that carries an H1 of its own (ATX or setext; the title becomes the H1), or lacks
+   level-two `Context and Problem Statement` and `Decision Outcome` sections. Headings inside
+   fenced code blocks do not count. This is the write path's floor, not a lint rule: `decisions
+   lint` does not require any section, so a hand-written entry stays valid;
+4. a qualified edge that names the entry's own register;
+5. any lint diagnostic against the new file when a copy of the register plus the new entry is
+   linted the way force mutations lint their candidates. Diagnostics on other files do not block
+   the write.
+
+It writes the birth values — `status: accepted`, `spec: 1`, `obsoleted-by: null`,
+`updated-by: []`, `legacy-id: null` — with every free-text value and the slug as a double-quoted
+scalar, creating the register directory when absent. It prints the written path, the
+`<repo>#<slug>` handle, and one `next:` line per authored edge naming the force verb that writes
+the target's cache, with any non-default `--register` and `--repo-root`; a target in another
+register is named with the register to run in and the qualified successor. `new` never rewrites
+another entry: publishing a successor and changing its predecessor stay separate acts.
+
 ## Tiers
 
 | Tier | What you get | Needs |
 |---|---|---|
 | 0 — prose | the format, templates, a greppable register, the skills as plain markdown | nothing |
-| 1 — CLI | `decisions index / search / lint / render / obsolete / update / vacate`, JSON out | an ecosystem impl |
+| 1 — CLI | `decisions index / search / lint / render / new / obsolete / update / vacate`, JSON out | an ecosystem impl |
 | 2 — grid | overlay-installed skills, the committee lens, roster-wide cross-repo index and search, decision beads | a station |
 
 Cross-repo union is a tier-2 property because it needs a live roster: a station enumerates its
