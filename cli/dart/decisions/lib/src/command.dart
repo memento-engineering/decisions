@@ -157,6 +157,7 @@ List<Command<int>> _verbs({
         linter: linter,
         registerPaths: resolvedRegisterPaths,
         output: resolvedOutput,
+        error: resolvedError,
       ),
     PrimeCommand(output: resolvedOutput),
     GuideCommand(output: resolvedOutput),
@@ -313,12 +314,21 @@ enum _ForceVerb {
   /// The option naming this verb's successor on the command line.
   final String successorOption;
 
-  /// The verb's one-line command description.
-  String get description => switch (this) {
+  /// The verb's one-line summary, as `decisions help` lists it.
+  String get summary => switch (this) {
     _ForceVerb.obsolete => 'Mark a decision as entirely replaced.',
     _ForceVerb.update => 'Record an amendment to an accepted decision.',
     _ForceVerb.vacate => 'Withdraw a decision after recording a successor.',
   };
+
+  /// The verb's `--help` description: the [summary], then its contract.
+  String get description =>
+      '$summary\n'
+      '\n'
+      'Exits 0 when the target\'s cache is written, printing '
+      '"$name <slug>: clean"\non stdout. Exits 1 when refused, having '
+      'written nothing, with the reason on stderr;\na missing target or '
+      '--$successorOption is a refusal, not a usage error.';
 }
 
 final class _MutationCommand extends Command<int> {
@@ -328,11 +338,13 @@ final class _MutationCommand extends Command<int> {
     required DecisionLinter? linter,
     required RegisterPathResolver registerPaths,
     required StringSink output,
+    required StringSink error,
   }) : _verb = verb,
        _mutator = mutator,
        _linter = linter,
        _registerPaths = registerPaths,
-       _output = output {
+       _output = output,
+       _error = error {
     argParser
       ..addOption(
         verb.successorOption,
@@ -359,6 +371,7 @@ final class _MutationCommand extends Command<int> {
   final DecisionLinter? _linter;
   final RegisterPathResolver _registerPaths;
   final StringSink _output;
+  final StringSink _error;
 
   @override
   String get name => _verb.name;
@@ -367,15 +380,18 @@ final class _MutationCommand extends Command<int> {
   String get description => _verb.description;
 
   @override
+  void printUsage() => _output.writeln(usage);
+
+  @override
   int run() {
     final positional = argResults!.rest;
     if (positional.length != 1) {
-      _output.writeln('error: expected exactly one target slug');
+      _error.writeln('error: expected exactly one target slug');
       return 1;
     }
     final successor = argResults!.option(_verb.successorOption);
     if (successor == null || successor.isEmpty) {
-      _output.writeln(
+      _error.writeln(
         'error: --${_verb.successorOption} requires a successor slug',
       );
       return 1;
@@ -403,7 +419,7 @@ final class _MutationCommand extends Command<int> {
       _output.writeln('$name ${positional.single}: clean');
       return 0;
     } on DecisionMutationException catch (error) {
-      _output.writeln('error: ${error.message}');
+      _error.writeln('error: ${error.message}');
       return 1;
     }
   }

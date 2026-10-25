@@ -633,8 +633,9 @@ void main() {
         updates: const ['base-rule'],
       );
       final output = StringBuffer();
+      final error = StringBuffer();
       final runner = CommandRunner<int>('station', 'fixture')
-        ..addCommand(DecisionsCommand(output: output));
+        ..addCommand(DecisionsCommand(output: output, error: error));
 
       final code = await runner.run(<String>[
         'decisions',
@@ -650,6 +651,7 @@ void main() {
 
       expect(code, 0);
       expect(output.toString(), 'update base-rule: clean\n');
+      expect(error.toString(), isEmpty);
       expect(parseEntry(successor.path).updates, orderedEquals(['base-rule']));
       expect(
         parseEntry(target.path).cachedUpdatedBy,
@@ -737,10 +739,14 @@ void main() {
         ],
       ];
       for (final invocation in invocations) {
+        final output = StringBuffer();
+        final error = StringBuffer();
         final runner = CommandRunner<int>('station', 'fixture')
-          ..addCommand(DecisionsCommand(output: StringBuffer()));
+          ..addCommand(DecisionsCommand(output: output, error: error));
         expect(await runner.run(invocation), 1);
         expect(target.readAsBytesSync(), orderedEquals(before));
+        expect(output.toString(), isEmpty);
+        expect(error.toString(), startsWith('error: '));
       }
     },
   );
