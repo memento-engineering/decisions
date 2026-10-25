@@ -139,7 +139,54 @@ void main() {
       );
       expect(result.isClean, isTrue, reason: '${result.toJson()}');
     });
+
+    test('a force mutation leaves them out of its candidate register', () {
+      _writeEntry(
+        register,
+        day: 2,
+        slug: 'replacement',
+        obsoletes: const ['old-rule'],
+      );
+      final linter = _RecordingLinter();
+
+      DecisionMutationService(linter: linter).obsolete(
+        registerPath: register.path,
+        repoRoot: sandbox.path,
+        target: 'old-rule',
+        successor: 'replacement',
+      );
+
+      expect(linter.candidateFiles, [
+        '2026-01-01-old-rule.md',
+        '2026-01-02-replacement.md',
+      ]);
+    });
   });
+}
+
+/// Records which files a force mutation copied into its candidate register,
+/// then lints it as the default candidate linter would.
+final class _RecordingLinter implements DecisionLinter {
+  final candidateFiles = <String>[];
+
+  @override
+  DecisionLintResult lint({
+    required String registerPath,
+    required String repoRoot,
+  }) {
+    candidateFiles.addAll(
+      Directory(registerPath)
+          .listSync()
+          .whereType<File>()
+          .map((file) => p.basename(file.path))
+          .toList()
+        ..sort(),
+    );
+    return const DecisionLintService().lint(
+      registerPath: registerPath,
+      repoRoot: repoRoot,
+    );
+  }
 }
 
 File _writeEntry(

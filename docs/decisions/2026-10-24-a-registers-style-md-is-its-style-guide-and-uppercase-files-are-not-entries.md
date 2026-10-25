@@ -13,6 +13,8 @@ register:
     - "SPEC.md"
     - "docs/decisions/*.md"
     - "cli/dart/decisions/lib/src/entry.dart"
+    - "cli/dart/decisions/lib/src/lint.dart"
+    - "cli/dart/decisions/lib/src/mutation.dart"
   obsoletes: []
   updates: []
   obsoleted-by: null
@@ -58,6 +60,14 @@ that wants another's voice copies its guide.
 In the engine, one exported predicate, `isDecisionEntryFile`, replaces the three separate filters
 in `readRegister`, `DecisionLintService` and the force mutations, so the rule cannot drift between
 them. `SPEC.md` states the rule under *Location and identity*.
+
+**The spec stays at 1.** Under
+[spec-and-artifact-versioning](2026-08-30-spec-and-artifact-versioning.md) the spec integer is
+declared per entry and versions the entry format, and a register carries no version. This rule
+changes no entry: every spec-1 entry reads exactly as it did. It changes which files in the
+directory are entries, and a register document has no front matter in which to declare a spec. The
+break it does cause, an older reader rejecting `STYLE.md`, falls on the artifacts, so it is carried
+by the `decisions` release that ships the predicate.
 
 ### Consequences
 
