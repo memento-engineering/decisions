@@ -25,6 +25,7 @@ by copying `templates/` and writing files.
 | `docs/decisions/` | this repo's own register (self-hosted) |
 | `cli/dart/` | the deterministic engine — no grid dependency |
 | `grid_assets/` | the grid adapter — installs skills, vends the rubric, composes `<station> decisions` |
+| `gc_pack/` | the Gas City pack — skill stubs and a doctor check over the `decisions` binary |
 
 ## Tiers
 
@@ -33,6 +34,9 @@ by copying `templates/` and writing files.
 | 0 — prose | format, templates, a greppable register, skills as plain markdown | nothing |
 | 1 — CLI | `decisions lint / index / search / new / update / obsolete / vacate / migrate-legacy`, `prime / guide / skills` for agents, `doctor`; JSON out | the [`decisions` binary](#install-the-cli), or any ecosystem impl |
 | 2 — grid | overlay-installed skills, the committee lens, roster-wide cross-repo index and search, decision beads | a station |
+
+The [Gas City pack](#install-in-gas-city) is a way to deliver tier 1 to a Gas City rig's agents,
+not a tier of its own.
 
 ## Install the CLI
 
@@ -76,6 +80,13 @@ dart pub global activate --source git https://github.com/memento-engineering/dec
   --git-path cli/dart/decisions --git-ref decisions-v0.3.0
 ```
 
+## Install in Gas City
+
+A Gas City rig gets the `decide` and `ratify` skills, and a `decisions:binary` doctor check, by
+importing the pack at [`gc_pack/decisions/`](gc_pack/decisions). Install the binary first; the
+pack never installs it. [`gc_pack/decisions/README.md`](gc_pack/decisions/README.md) is the
+install page: pinning, rig and city imports, upgrading, and the doctor check.
+
 ## Teach your agent the register
 
 The binary carries the `decide` and `ratify` skills, so the instructions an agent follows always
@@ -92,7 +103,8 @@ This repo keeps a decision register in `docs/decisions/`: run `decisions prime` 
   the register's `STYLE.md` when it has one.
 - `decisions skills install <dir>` — optional, for agents that load skills from a directory:
   writes `<dir>/<name>/SKILL.md` stubs that run `decisions guide <name>`. Rerunning overwrites
-  earlier stubs and refuses to touch any other file:
+  earlier stubs and refuses to touch any other file. In a Gas City rig, import the
+  [pack](#install-in-gas-city) instead:
 
   ```sh
   decisions skills install .claude/skills

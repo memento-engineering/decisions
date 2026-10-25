@@ -33,9 +33,11 @@ preference.
 | `docs/decisions/` | this repo's own register — self-hosted |
 | `cli/dart/decisions/` | the deterministic engine; no grid dependency |
 | `grid_assets/decisions_grid_assets/` | the tier-2 grid adapter |
+| `gc_pack/decisions/` | the Gas City pack — generated skill stubs, a doctor shim over `decisions doctor`, its install page |
 
-Four surfaces are **copies or generated output**. Editing the copy is always wrong — the tests
-that pin them will fail, and `assets install` reverts them:
+Five surfaces are **copies or generated output**. Editing the copy is always wrong: the test
+named beside each one fails, and its generator (`assets install`, `generate_grid_assets`,
+`generate_guides` or `skills install`) overwrites the edit:
 
 - `grid_assets/.../extension/station_overlay/claude/skills/**` mirrors `skills/**` byte for byte
   (`decide_skill_test.dart`, `ratify_skill_test.dart`, `asset_pack_test.dart`).
@@ -46,12 +48,19 @@ that pin them will fail, and `assets install` reverts them:
 - `cli/dart/decisions/lib/src/guides.g.dart` is generated from `skills/*/SKILL.md` and is what
   `decisions guide` prints. Regenerate with `dart run tool/generate_guides.dart` from
   `cli/dart/decisions`; `guides_test.dart` fails while it is stale.
+- `gc_pack/decisions/skills/**` is `decisions skills install` output, pinned byte for byte by
+  `cli/dart/decisions/test/gc_pack_test.dart`. Regenerate from `cli/dart/decisions` with
+  `dart run bin/decisions.dart skills install ../../../gc_pack/decisions/skills`. A stub carries
+  its skill's `description`, so changing a description in `skills/` means regenerating
+  `guides.g.dart` **and** the pack stubs.
 
 ## Build & test
 
 Two independently resolved packages, **no workspace** — resolve and gate each one on its own.
 Both are consumed by other repos through git tags, so a red package reaches consumers the moment
-a tag is pushed. This is the gate that stops that:
+a tag is pushed. The Gas City pack is a third surface consumed that way (rigs pin it by the
+commit of a `decisions-v` tag), gated by `gc_pack_test.dart` in the CLI package. This is the gate
+that stops that:
 
 ```bash
 cd cli/dart/decisions            && dart pub get && dart analyze && dart test
