@@ -25,7 +25,9 @@ const _decideBody = r'''
 Record a decision the moment it is made: an autonomous call, a human ruling or
 a joint one. Recording does not reopen the choice. `decisions new` owns the
 mechanics (slug shape and collisions, birth values, the body floor, first-write
-lint); this guide is the judgement it cannot check.
+lint); this guide is the judgement it cannot check. Run every command here
+from the repository root: the path listing is relative to the working
+directory, and `decisions new` writes to `docs/decisions` under it.
 
 ## When an entry is warranted
 

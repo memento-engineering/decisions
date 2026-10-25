@@ -11,6 +11,7 @@ register:
   slug: "a-skill-stub-names-its-fallback-when-the-decisions-binary-is-missing"
   surfaces:
     - "cli/dart/decisions/lib/src/instructions_command.dart"
+    - "skills/decide/SKILL.md"
   obsoletes: []
   updates:
     - "the-decisions-binary-carries-its-own-agent-instructions"
@@ -48,6 +49,11 @@ force: a stub still carries the canonical front matter and the marker line, stil
 `decisions guide <name>` for every instruction, and install still overwrites only its own stubs.
 The fallback is the only other thing a stub says. It is one line, not a copy of the guide, so a
 stub stays a pointer (nico, 2026-10-24).
+
+The `decide` skill's own section for a missing binary says the same thing: install it, or write
+the entry by hand from `templates/decision.md` and `SPEC.md`. That replaces the old skill's rule
+not to install tooling where the repository has no decisions CLI (agent, carrying the stub ruling
+into the skill so the two agree). Beads is unchanged: the skill still never installs it.
 
 ### Consequences
 

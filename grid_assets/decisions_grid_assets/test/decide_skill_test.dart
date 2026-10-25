@@ -74,6 +74,7 @@ void main() {
 
   test('defers the write to decisions new, then its next: lines', () {
     expect(_prose, contains('`decisions new` owns the mechanics'));
+    expect(_prose, contains('Run every command here from the repository root'));
     expect(_writeCall, startsWith('decisions new <slug> --title'));
     for (final flag in RegExp(r'--[a-z-]+').allMatches(_writeCall)) {
       expect(_newFlags, contains(flag[0]), reason: 'unknown flag ${flag[0]}');
