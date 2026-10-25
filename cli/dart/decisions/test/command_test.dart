@@ -51,6 +51,14 @@ final class FakeLegacyRegisterConverter implements LegacyRegisterConverter {
 final class FakeDecisionMutator implements DecisionMutator {
   final calls = <String>[];
 
+  /// When set, every operation records its call and then refuses with this.
+  String? refusal;
+
+  void _record(String call) {
+    calls.add(call);
+    if (refusal case final message?) throw DecisionMutationException(message);
+  }
+
   @override
   void obsolete({
     required String registerPath,
@@ -58,7 +66,7 @@ final class FakeDecisionMutator implements DecisionMutator {
     required String target,
     required String successor,
   }) {
-    calls.add('obsolete|$registerPath|$repoRoot|$target|$successor');
+    _record('obsolete|$registerPath|$repoRoot|$target|$successor');
   }
 
   @override
@@ -68,7 +76,7 @@ final class FakeDecisionMutator implements DecisionMutator {
     required String target,
     required String successor,
   }) {
-    calls.add('update|$registerPath|$repoRoot|$target|$successor');
+    _record('update|$registerPath|$repoRoot|$target|$successor');
   }
 
   @override
@@ -78,7 +86,7 @@ final class FakeDecisionMutator implements DecisionMutator {
     required String target,
     required String successor,
   }) {
-    calls.add('vacate|$registerPath|$repoRoot|$target|$successor');
+    _record('vacate|$registerPath|$repoRoot|$target|$successor');
   }
 }
 
@@ -260,8 +268,12 @@ void main() {
 
   test('force commands delegate exact arguments and return zero', () async {
     final fake = FakeDecisionMutator();
+    final output = StringBuffer();
+    final error = StringBuffer();
     final runner = CommandRunner<int>('station', 'fixture')
-      ..addCommand(DecisionsCommand(mutator: fake, output: StringBuffer()));
+      ..addCommand(
+        DecisionsCommand(mutator: fake, output: output, error: error),
+      );
 
     expect(
       await runner.run(<String>[
@@ -310,5 +322,101 @@ void main() {
       'update|register-path|repo-path|base-rule|amendment',
       'vacate|register-path|repo-path|withdrawn-rule|no-rule-governs',
     ]);
+    expect(
+      output.toString(),
+      'obsolete old-rule: clean\n'
+      'update base-rule: clean\n'
+      'vacate withdrawn-rule: clean\n',
+    );
+    expect(error.toString(), isEmpty);
+  });
+
+  group('force commands report refusals on stderr only', () {
+    const successorOption = {
+      'obsolete': '--by',
+      'update': '--by',
+      'vacate': '--successor',
+    };
+
+    for (final MapEntry(key: verb, value: option) in successorOption.entries) {
+      test(
+        '$verb: a refused mutation exits 1 with the reason on stderr',
+        () async {
+          final fake = FakeDecisionMutator()
+            ..refusal = 'successor is not clean';
+          final output = StringBuffer();
+          final error = StringBuffer();
+          final runner = CommandRunner<int>('station', 'fixture')
+            ..addCommand(
+              DecisionsCommand(mutator: fake, output: output, error: error),
+            );
+
+          final code = await runner.run([
+            'decisions',
+            verb,
+            'target',
+            option,
+            'successor',
+          ]);
+
+          expect(code, 1);
+          expect(fake.calls, hasLength(1));
+          expect(output.toString(), isEmpty);
+          expect(error.toString(), 'error: successor is not clean\n');
+        },
+      );
+
+      test('$verb: a missing target or successor exits 1 on stderr', () async {
+        final fake = FakeDecisionMutator();
+        final output = StringBuffer();
+        final error = StringBuffer();
+        final runner = CommandRunner<int>('station', 'fixture')
+          ..addCommand(
+            DecisionsCommand(mutator: fake, output: output, error: error),
+          );
+
+        expect(await runner.run(['decisions', verb, option, 'successor']), 1);
+        expect(await runner.run(['decisions', verb, 'target']), 1);
+
+        expect(fake.calls, isEmpty);
+        expect(output.toString(), isEmpty);
+        expect(
+          error.toString(),
+          'error: expected exactly one target slug\n'
+          'error: $option requires a successor slug\n',
+        );
+      });
+    }
+  });
+
+  test('the standalone runner routes force refusals to stderr', () async {
+    final fake = FakeDecisionMutator()..refusal = 'no such entry';
+    final output = StringBuffer();
+    final error = StringBuffer();
+    final runner = DecisionsCommandRunner(
+      mutator: fake,
+      output: output,
+      error: error,
+    );
+
+    expect(await runner.run(['update', 'target', '--by', 'successor']), 1);
+    expect(output.toString(), isEmpty);
+    expect(error.toString(), 'error: no such entry\n');
+  });
+
+  test('force --help states where results and refusals go', () async {
+    final output = StringBuffer();
+    final runner = DecisionsCommandRunner(
+      output: output,
+      error: StringBuffer(),
+    );
+
+    for (final verb in ['obsolete', 'update', 'vacate']) {
+      output.clear();
+      expect(await runner.run([verb, '--help']), 0);
+      final help = output.toString().replaceAll('\n', ' ');
+      expect(help, contains('"$verb <slug>: clean" on stdout'));
+      expect(help, contains('with the reason on stderr'));
+    }
   });
 }

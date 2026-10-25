@@ -86,6 +86,11 @@ void main() {
             'list-to-the-cli'],
         'dec-9ed',
       );
+      expect(
+        beads['every-verb-prints-refusals-and-errors-on-stderr-and-results-'
+            'on-stdout'],
+        'dec-p6z',
+      );
       beads.remove('docket-triggers');
       beads.remove('lexical-precedent-search');
       beads.remove('force-mutations-scope-cleanliness-to-touched-entries');
@@ -116,6 +121,9 @@ void main() {
       beads.remove(
         'spec-tier-table-describes-capabilities-and-defers-the-verb-list-to-'
         'the-cli',
+      );
+      beads.remove(
+        'every-verb-prints-refusals-and-errors-on-stderr-and-results-on-stdout',
       );
       expect(beads.values, everyElement(isNull));
       expect(entries.map((entry) => entry.legacyId), everyElement(isNull));
