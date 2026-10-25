@@ -5,6 +5,7 @@ import 'package:args/args.dart';
 import 'package:args/command_runner.dart';
 
 import 'index_command.dart';
+import 'instructions_command.dart';
 import 'legacy.dart';
 import 'lint.dart';
 import 'mutation.dart';
@@ -155,6 +156,9 @@ List<Command<int>> _verbs({
         registerPaths: resolvedRegisterPaths,
         output: resolvedOutput,
       ),
+    PrimeCommand(output: resolvedOutput),
+    GuideCommand(output: resolvedOutput),
+    SkillsCommand(output: resolvedOutput, error: resolvedError),
   ];
 }
 

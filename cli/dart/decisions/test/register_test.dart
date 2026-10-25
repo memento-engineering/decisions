@@ -50,6 +50,10 @@ void main() {
         'dec-vqt',
       );
       expect(beads['decisions-new-owns-the-write-mechanics'], 'dec-dmq');
+      expect(
+        beads['the-decisions-binary-carries-its-own-agent-instructions'],
+        'dec-mtj',
+      );
       beads.remove('docket-triggers');
       beads.remove('lexical-precedent-search');
       beads.remove('force-mutations-scope-cleanliness-to-touched-entries');
@@ -61,6 +65,7 @@ void main() {
         'are-not-entries',
       );
       beads.remove('decisions-new-owns-the-write-mechanics');
+      beads.remove('the-decisions-binary-carries-its-own-agent-instructions');
       expect(beads.values, everyElement(isNull));
       expect(entries.map((entry) => entry.legacyId), everyElement(isNull));
     });

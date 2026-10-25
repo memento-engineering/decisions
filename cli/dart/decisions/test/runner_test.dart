@@ -21,6 +21,37 @@ void main() {
     expect(runner.commands['new'], isA<DecisionNewCommand>());
   });
 
+  test('both hosts carry their own agent instructions', () {
+    final grouped = DecisionsCommand(output: StringBuffer());
+    final runner = DecisionsCommandRunner(output: StringBuffer());
+
+    for (final verb in ['prime', 'guide', 'skills']) {
+      expect(grouped.subcommands.keys, contains(verb));
+      expect(runner.commands.keys, contains(verb));
+    }
+  });
+
+  for (final args in [
+    ['prime'],
+    ['guide'],
+    ['guide', 'ratify'],
+  ]) {
+    test('${args.join(' ')} gives the grouped command\'s output', () async {
+      final groupedOutput = StringBuffer();
+      final grouped = CommandRunner<int>('decisions', 'fixture')
+        ..addCommand(DecisionsCommand(output: groupedOutput));
+      final standaloneOutput = StringBuffer();
+
+      await grouped.run(['decisions', ...args]);
+      await DecisionsCommandRunner(output: standaloneOutput).run(args);
+
+      expect(
+        standaloneOutput.toString(),
+        groupedOutput.toString().replaceAll('decisions decisions', 'decisions'),
+      );
+    });
+  }
+
   test('--version prints the artifact version and the spec', () async {
     final output = StringBuffer();
     final code = await DecisionsCommandRunner(

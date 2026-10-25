@@ -76,6 +76,27 @@ dart pub global activate --source git https://github.com/memento-engineering/dec
   --git-path cli/dart/decisions --git-ref decisions-v0.3.0
 ```
 
+## Point your agent at the binary
+
+The binary carries the `decide` and `ratify` skills, so the instructions an agent follows always
+match the engine that lints its work. One line in `AGENTS.md` (or `CLAUDE.md`) is enough:
+
+```markdown
+This repo keeps a decision register: run `decisions prime` before deciding or changing anything.
+```
+
+- `decisions prime` — a short orientation: the register, whether it has a `STYLE.md`, each verb
+  and when to reach for it.
+- `decisions guide [topic]` — lists the guides, or prints one (`decide`, `ratify`) followed by
+  the register's `STYLE.md` when it has one.
+- `decisions skills install <dir>` — for agents that load skills from a directory, writes
+  `<dir>/<name>/SKILL.md` stubs that run `decisions guide <name>`. Rerunning overwrites earlier
+  stubs and refuses to touch any other file:
+
+  ```sh
+  decisions skills install .claude/skills
+  ```
+
 ## Search for precedent
 
 Ask what already governs the work before acting. The bare tier searches the local register without
