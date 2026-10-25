@@ -31,7 +31,7 @@ by copying `templates/` and writing files.
 | Tier | What you get | Needs |
 |---|---|---|
 | 0 — prose | format, templates, a greppable register, skills as plain markdown | nothing |
-| 1 — CLI | `decisions lint / index / search / new / update / obsolete / vacate / migrate-legacy`, `prime / guide / skills` for agents; JSON out | the [`decisions` binary](#install-the-cli), or any ecosystem impl |
+| 1 — CLI | `decisions lint / index / search / new / update / obsolete / vacate / migrate-legacy`, `prime / guide / skills` for agents, `doctor`; JSON out | the [`decisions` binary](#install-the-cli), or any ecosystem impl |
 | 2 — grid | overlay-installed skills, the committee lens, roster-wide cross-repo index and search, decision beads | a station |
 
 ## Install the CLI
@@ -191,7 +191,7 @@ The format is settled at spec 1 and self-hosted in [`docs/decisions/`](docs/deci
 All three tiers are built. Tier 0 works today by copying `templates/`. Tier 1 is the Dart engine
 in [`cli/dart/decisions/`](cli/dart/decisions): `lint`, `index`, `search`, `new`, `update`,
 `obsolete`, `vacate` and `migrate-legacy` work the register; `prime`, `guide` and `skills` teach an
-agent to use it. Tier 2 is
+agent to use it; `doctor` checks that the binary can work this register. Tier 2 is
 [`grid_assets/decisions_grid_assets/`](grid_assets/decisions_grid_assets), which installs the
 `decide` and `ratify` skills, vends the `decision-alignment` rubric, and composes a
 `<station> decisions` command over a live roster.
