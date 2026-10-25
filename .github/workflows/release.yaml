@@ -74,8 +74,11 @@ jobs:
       prerelease: ${{ steps.publish.outputs.prerelease }}
       sha: ${{ steps.pin.outputs.sha }}
     steps:
-      # For the tag ref: the Gas City pin is the commit it names.
+      # For the tag ref: the Gas City pin is the commit it names. Reading it
+      # needs no credentials, so the write-scoped token stays out of .git.
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/download-artifact@v4
         with:
           path: dist

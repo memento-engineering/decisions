@@ -15,7 +15,8 @@ register:
   obsoletes: []
   updates: []
   obsoleted-by: null
-  updated-by: []
+  updated-by:
+    - each-release-prints-and-smoke-tests-its-gas-city-pin
   bead: dec-n8y.2
   legacy-id: null
 ---

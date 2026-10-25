@@ -72,6 +72,10 @@ void main() {
         beads['the-register-ships-to-gas-city-as-a-pack-of-guide-stubs'],
         'dec-iiq',
       );
+      expect(
+        beads['each-release-prints-and-smoke-tests-its-gas-city-pin'],
+        'dec-p7f.7.5',
+      );
       beads.remove('docket-triggers');
       beads.remove('lexical-precedent-search');
       beads.remove('force-mutations-scope-cleanliness-to-touched-entries');
@@ -94,6 +98,7 @@ void main() {
         'templates-style-md-is-the-starter-style-guide-for-a-register',
       );
       beads.remove('the-register-ships-to-gas-city-as-a-pack-of-guide-stubs');
+      beads.remove('each-release-prints-and-smoke-tests-its-gas-city-pin');
       expect(beads.values, everyElement(isNull));
       expect(entries.map((entry) => entry.legacyId), everyElement(isNull));
     });
