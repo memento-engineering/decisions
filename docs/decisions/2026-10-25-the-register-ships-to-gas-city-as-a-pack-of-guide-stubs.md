@@ -15,7 +15,8 @@ register:
   obsoletes: []
   updates: []
   obsoleted-by: null
-  updated-by: []
+  updated-by:
+    - the-gas-city-pack-ships-no-orders-and-register-health-belongs-in-each-rigs-ci
   bead: "dec-iiq"
   legacy-id: null
 ---
