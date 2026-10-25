@@ -31,7 +31,7 @@ by copying `templates/` and writing files.
 | Tier | What you get | Needs |
 |---|---|---|
 | 0 — prose | format, templates, a greppable register, skills as plain markdown | nothing |
-| 1 — CLI | `decisions index / search / lint / obsolete / update / vacate`, JSON out | the [`decisions` binary](#install-the-cli), or any ecosystem impl |
+| 1 — CLI | `decisions index / search / lint / new / obsolete / update / vacate`, JSON out | the [`decisions` binary](#install-the-cli), or any ecosystem impl |
 | 2 — grid | overlay-installed skills, the committee lens, roster-wide cross-repo index and search, decision beads | a station |
 
 ## Install the CLI
@@ -128,6 +128,27 @@ an all-register dump. Snippets contain one matching line and are at most 160 cha
 leading and trailing ellipses. Parse diagnostics go to standard error, so incomplete coverage is
 not mistaken for a clean zero-hit result.
 
+## Record a decision
+
+`decisions new` writes one entry and does every mechanical step for you: it checks the slug's
+shape and that no entry already holds it, requires the body's `Context and Problem Statement` and
+`Decision Outcome` sections, writes the birth values (`accepted`, empty caches), quotes the front
+matter, and lints the register with the new entry in it before writing anything. A refusal exits
+`1` and leaves the register untouched.
+
+```sh
+decisions new agents-never-watch-files \
+  --title 'Agents never watch files' \
+  --surface 'lib/src/watch/**' --decision-maker nico --decision-maker agent \
+  --updates no-file-watching --body body.md      # or --body - to read stdin
+```
+
+It prints the written path, the entry's `<repo>#<slug>` handle, and one `next:` line per authored
+edge naming the force verb that writes the target's cache — `decisions update no-file-watching
+--by agents-never-watch-files` — because publishing a successor and changing its predecessor are
+separate acts. What to record, which surfaces it governs and who decided stay with you; the
+`decide` skill covers that judgement.
+
 ## What is ours
 
 Borrowed deliberately: MADR's vocabulary, sections, path and status values (MIT/CC0); the IETF's
@@ -142,7 +163,7 @@ linked to the work graph**.
 The format is settled at spec 1 and self-hosted in [`docs/decisions/`](docs/decisions).
 
 All three tiers are built. Tier 0 works today by copying `templates/`. Tier 1 is the Dart engine
-in [`cli/dart/decisions/`](cli/dart/decisions) — `index`, `search`, `lint`, `migrate-legacy`,
+in [`cli/dart/decisions/`](cli/dart/decisions) — `index`, `search`, `lint`, `new`, `migrate-legacy`,
 `obsolete`, `update`, `vacate`. Tier 2 is
 [`grid_assets/decisions_grid_assets/`](grid_assets/decisions_grid_assets), which installs the
 `decide` and `ratify` skills, vends the `decision-alignment` rubric, and composes a

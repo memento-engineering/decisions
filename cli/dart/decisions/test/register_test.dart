@@ -49,6 +49,7 @@ void main() {
             'are-not-entries'],
         'dec-vqt',
       );
+      expect(beads['decisions-new-owns-the-write-mechanics'], 'dec-dmq');
       beads.remove('docket-triggers');
       beads.remove('lexical-precedent-search');
       beads.remove('force-mutations-scope-cleanliness-to-touched-entries');
@@ -59,6 +60,7 @@ void main() {
         'a-registers-style-md-is-its-style-guide-and-uppercase-files-'
         'are-not-entries',
       );
+      beads.remove('decisions-new-owns-the-write-mechanics');
       expect(beads.values, everyElement(isNull));
       expect(entries.map((entry) => entry.legacyId), everyElement(isNull));
     });

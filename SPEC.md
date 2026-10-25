@@ -246,7 +246,7 @@ ellipses. Parse diagnostics remain visible separately from hits, including on a 
 | Tier | What you get | Needs |
 |---|---|---|
 | 0 — prose | the format, templates, a greppable register, the skills as plain markdown | nothing |
-| 1 — CLI | `decisions index / search / lint / render / obsolete / update / vacate`, JSON out | an ecosystem impl |
+| 1 — CLI | `decisions index / search / lint / render / new / obsolete / update / vacate`, JSON out | an ecosystem impl |
 | 2 — grid | overlay-installed skills, the committee lens, roster-wide cross-repo index and search, decision beads | a station |
 
 Cross-repo union is a tier-2 property because it needs a live roster: a station enumerates its

@@ -35,6 +35,7 @@ void main() {
       '0002-the-decisions-cli-ships-as-prebuilt-binaries.md',
       '0003-a-registers-style-md-is-its-style-guide-and-uppercase-files-are-'
           'not-entries.md',
+      '0003-decisions-new-owns-the-write-mechanics.md',
     ]);
     final combined = views.map((view) => view.content).join('\n');
     final graph = DecisionGraph(readRegister(_selfHostedRegister));

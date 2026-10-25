@@ -13,6 +13,14 @@ void main() {
     expect(runner.commands.keys, containsAll(grouped.subcommands.keys));
   });
 
+  test('both hosts carry the new verb', () {
+    final grouped = DecisionsCommand(output: StringBuffer());
+    final runner = DecisionsCommandRunner(output: StringBuffer());
+
+    expect(grouped.subcommands['new'], isA<DecisionNewCommand>());
+    expect(runner.commands['new'], isA<DecisionNewCommand>());
+  });
+
   test('--version prints the artifact version and the spec', () async {
     final output = StringBuffer();
     final code = await DecisionsCommandRunner(
