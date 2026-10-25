@@ -15,7 +15,8 @@ register:
   obsoletes: []
   updates: []
   obsoleted-by: null
-  updated-by: []
+  updated-by:
+    - a-skill-stub-names-its-fallback-when-the-decisions-binary-is-missing
   bead: dec-mtj
   legacy-id: null
 ---

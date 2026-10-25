@@ -38,7 +38,7 @@ abstract final class GridAssetsPack {
   static const GridAssetDefinition skillDecide = GridAssetDefinition(
     assetKey: AssetKey(package: package, kind: AssetKind.skill, id: 'decide'),
     description:
-        'Record a placement, naming, seam, policy, or human ruling that has already been decided, with collision-safe identity, governed surfaces, honest authorship, correct edges, an optional minted decision bead, and first-write validation.',
+        'Use right after a placement, naming, seam, policy or human ruling has been decided, by an agent or a human, to record it in the decision register - choose the narrowest governed surfaces, honest authorship and the right edge, then write the entry with decisions new. Not for changing an existing decision\'s force; that is the ratify skill.',
     audience: AssetAudience.agent,
     visibility: AssetVisibility.public,
     selector: RequiresPath('docs/decisions'),
