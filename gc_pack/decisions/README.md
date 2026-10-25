@@ -112,8 +112,9 @@ agent works a register: the mayor's working directory is the city root, which us
 - **Do not use `gc rig add --include` for this pack** (*v1.5.1*). It writes the import with no
   version. If that is the source's only import, `gc import install` fails with
   `no semver tags found`, because this repo's tags are prefixed. If another import already pins
-  the source, install succeeds and the unpinned import quietly follows that pin, then fails
-  once that pin is gone.
+  the source, install succeeds and the unpinned import quietly follows that pin. Once that pin
+  is gone, install still works from the commit left in `packs.lock`, but `gc import upgrade`,
+  or an install without that lock, fails with `no semver tags found`.
 - **Upgrade** by moving every `version` that names this source to the new release's commit in
   one edit, the defaults table included, then running `gc import install` and `gc import check`.
   Upgrade the binary to the same release. Moving only one import fails with

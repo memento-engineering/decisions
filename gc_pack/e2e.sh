@@ -42,6 +42,17 @@ die() {
   exit 2
 }
 
+# Every scenario below, in run order. E2E_ONLY is checked against this list,
+# so a misspelled or stale name stops the run instead of running nothing.
+SCENARIOS=(s1_lint s2_rig_level s3_materialized s4_city_level s5_defaults s6_upgrade
+  s7_one_pin s8_include s8_include_pinned s9_cache_wipe s10_two_levels)
+for only in ${E2E_ONLY:-}; do
+  case " ${SCENARIOS[*]} " in
+    *" $only "*) ;;
+    *) die "E2E_ONLY names no scenario '$only' (scenarios: ${SCENARIOS[*]})" ;;
+  esac
+done
+
 REPO=$(cd "$(dirname "$0")/.." && pwd -P)
 PACK=$REPO/gc_pack/decisions
 
@@ -104,6 +115,18 @@ cleanup() {
 trap cleanup EXIT
 trap 'exit 130' INT TERM
 
+# Compile before HOME moves into the sandbox: pub get writes the pub cache path
+# into the checkout's .dart_tool/package_config.json, and a sandboxed cache is
+# deleted on exit, which would leave the checkout unable to run.
+if [ -z "$DECISIONS_REAL" ]; then
+  command -v dart >/dev/null || die "set DECISIONS_BIN, or install dart so it can be compiled"
+  (cd "$REPO/cli/dart/decisions" && dart pub get >/dev/null &&
+    dart compile exe bin/decisions.dart -o "$ROOT/decisions-exe" >/dev/null) ||
+    die "dart compile exe of cli/dart/decisions failed"
+  DECISIONS_REAL=$ROOT/decisions-exe
+fi
+[ -x "$DECISIONS_REAL" ] || die "decisions at $DECISIONS_REAL is not executable"
+
 while IFS= read -r var; do
   unset "$var"
 done < <(compgen -e | grep -E '^(GC_|BEADS_)')
@@ -140,15 +163,6 @@ cat >"$HOME/.gitconfig" <<'EOF'
 [advice]
 	detachedHead = false
 EOF
-
-if [ -z "$DECISIONS_REAL" ]; then
-  command -v dart >/dev/null || die "set DECISIONS_BIN, or install dart so it can be compiled"
-  (cd "$REPO/cli/dart/decisions" && dart pub get >/dev/null &&
-    dart compile exe bin/decisions.dart -o "$ROOT/decisions-exe" >/dev/null) ||
-    die "dart compile exe of cli/dart/decisions failed"
-  DECISIONS_REAL=$ROOT/decisions-exe
-fi
-[ -x "$DECISIONS_REAL" ] || die "decisions at $DECISIONS_REAL is not executable"
 
 for dir in bin bin-nodec bin-fake64; do
   ln -s "$GC_REAL" "$ROOT/$dir/gc"
@@ -351,9 +365,14 @@ version = "sha:$SHA"
 EOF
   ok gc rig add "$dir/late" --name late
   has 'Import: decisions='
-  # rig add copies the table but installs nothing: the city does not load
-  # until gc import install runs.
+  # rig add copies the table but installs nothing: the whole city, the mayor
+  # and the rig that predates the defaults included, does not load until gc
+  # import install runs.
   fails_with 'missing packs.lock entry' gc skill list --agent late/claude
+  has 'is not installed'
+  fails_with 'missing packs.lock entry' gc skill list --agent early/claude
+  fails_with 'missing packs.lock entry' gc skill list --agent mayor
+  fails_with 'missing packs.lock entry' gc config show
   ok gc import install
   ok gc import check
   lists_skills late/claude
@@ -414,6 +433,28 @@ s8_include() {
   has 'no semver tags found'
 }
 
+s8_include_pinned() {
+  local dir=$ROOT/s8p
+  new_city "$dir/city"
+  new_rig "$dir/app"
+  new_rig "$dir/other"
+  cd "$dir/city" || fail "cd"
+  ok gc rig add "$dir/app" --name app
+  ok gc --rig app import add "$SRC" --name decisions --version "sha:$SHA"
+  ok gc rig add "$dir/other" --name other --include "$SRC"
+  ok gc import install
+  lists_skills other/claude
+  # Drop the pinned import, so the unpinned one is all that names the source.
+  # packs.lock still holds the old commit, so install keeps working until the
+  # lock is resolved again.
+  ok gc --rig app import remove decisions
+  ok gc import install
+  lists_skills other/claude
+  fails_with 'no semver tags found' gc import upgrade
+  rm -f packs.lock
+  fails_with 'no semver tags found' gc import install
+}
+
 s9_cache_wipe() {
   local dir=$ROOT/s9 cache
   new_city "$dir/city"
@@ -435,15 +476,37 @@ s9_cache_wipe() {
   rm -rf "$cache"
   fails_with 'locked but not cached' gc skill list --agent mayor
   fails_with 'locked but not cached' gc config show
+  # The pack's own check is not registered then, so it cannot report this.
+  run gc doctor --check decisions:binary --json
+  [ "$RC" -ne 0 ] || fail "gc doctor --check decisions:binary exited 0 after the cache wipe"
+  has 'no registered check matches'
+  [ -z "$(doctor_status)" ] || fail "decisions:binary reported '$(doctor_status)' after the cache wipe"
   ok gc import install
   lists_skills app/claude
 }
 
+s10_two_levels() {
+  local dir=$ROOT/s10 n skill
+  new_city "$dir/city"
+  new_rig "$dir/app"
+  cd "$dir/city" || fail "cd"
+  ok gc rig add "$dir/app" --name app
+  ok gc import add "$SRC" --name decisions --version "sha:$SHA"
+  ok gc --rig app import add "$SRC" --name decisions --version "sha:$SHA"
+  ok gc import check
+  ok gc skill list --agent app/claude
+  for skill in decisions.decide decisions.ratify; do
+    n=$(printf '%s\n' "$OUT" | awk -v s="$skill" '$1 == s' | wc -l | tr -d ' ')
+    [ "$n" -eq 2 ] || fail "$skill listed $n time(s) in app/claude, want 2"
+  done
+}
+
 # ---- run -------------------------------------------------------------------
 
-failures=0
+passed=0 skipped=0 failures=0
 scenario() { # scenario <fn> <README claim>
   local fn=$1 claim=$2 log=$ROOT/logs/$1.log rc
+  case " ${SCENARIOS[*]} " in *" $fn "*) ;; *) die "scenario $fn is missing from SCENARIOS" ;; esac
   case " ${E2E_ONLY:-$fn} " in *" $fn "*) ;; *) return 0 ;; esac
   mkdir -p "$ROOT/logs"
   (
@@ -451,12 +514,13 @@ scenario() { # scenario <fn> <README claim>
     "$fn"
   ) >"$log" 2>&1
   rc=$?
-  if [ "$rc" -eq 0 ]; then
-    if grep -q '^SKIP:' "$log"; then
-      printf 'PASS %s: %s (%s)\n' "$fn" "$claim" "$(grep -m1 '^SKIP:' "$log")"
-    else
-      printf 'PASS %s: %s\n' "$fn" "$claim"
-    fi
+  if [ "$rc" -eq 0 ] && grep -q '^SKIP:' "$log"; then
+    # A skip checked nothing: say so, rather than PASS a claim never tested.
+    printf 'SKIP %s: %s (%s)\n' "$fn" "$claim" "$(grep -m1 '^SKIP:' "$log" | sed 's/^SKIP: //')"
+    skipped=$((skipped + 1))
+  elif [ "$rc" -eq 0 ]; then
+    printf 'PASS %s: %s\n' "$fn" "$claim"
+    passed=$((passed + 1))
   else
     printf 'FAIL %s: %s\n' "$fn" "$claim"
     tail -n 60 "$log" | sed 's/^/    /'
@@ -469,14 +533,18 @@ scenario s1_lint "the pack passes gc lint"
 scenario s2_rig_level "a rig import reaches only that rig's agents; decisions:binary reports ok, not-on-PATH and too-old"
 scenario s3_materialized "gc links the committed stubs as decisions.decide and decisions.ratify"
 scenario s4_city_level "a city import is [imports.decisions] in pack.toml and reaches the mayor and every rig's agents"
-scenario s5_defaults "[defaults.rig.imports] reaches rigs added afterwards, not rigs that already exist"
+scenario s5_defaults "[defaults.rig.imports] reaches rigs added afterwards, not rigs that already exist; until gc import install the whole city fails with 'missing packs.lock entry'"
 scenario s6_upgrade "upgrade by moving the version and running gc import install; import add again fails with 'already exists'"
 scenario s7_one_pin "one pin per city: a second pin of the same source fails with 'incompatible pinned versions'"
 scenario s8_include "gc rig add --include of this pack fails with 'no semver tags found'"
-scenario s9_cache_wipe "after a cache wipe the city fails to load with 'locked but not cached'; gc import install refills it"
+scenario s8_include_pinned "with another import pinning the source, an --include import follows that pin; once it is gone, upgrade or an unlocked install fails with 'no semver tags found'"
+scenario s9_cache_wipe "after a cache wipe the city fails to load with 'locked but not cached' and decisions:binary is not registered; gc import install refills it"
+scenario s10_two_levels "a city import plus a rig import lists each skill twice in that rig's agents"
 
+summary="$passed passed, $skipped skipped, $failures failed"
 if [ "$failures" -ne 0 ]; then
-  printf 'e2e: %s scenario(s) failed\n' "$failures"
+  printf 'e2e: %s\n' "$summary"
   exit 1
 fi
-printf 'e2e: all scenarios passed\n'
+[ $((passed + skipped)) -gt 0 ] || die "no scenario ran"
+printf 'e2e: all scenarios passed (%s)\n' "$summary"

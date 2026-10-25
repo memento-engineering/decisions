@@ -37,6 +37,9 @@ jobs:
   # gc_pack/e2e.sh. Each binary is a pinned release with its sha256 held here,
   # so bumping one is one version/sha pair.
   gc_pack:
+    # Pinned, unlike the dart job: the apt package names below and the
+    # linux_amd64 release binaries are what this job was checked against, so
+    # an ubuntu-latest roll should be a deliberate edit here.
     runs-on: ubuntu-24.04
     env:
       GC_VERSION: 1.5.1
