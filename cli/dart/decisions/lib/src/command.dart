@@ -327,7 +327,8 @@ enum _ForceVerb {
       '\n'
       'Exits 0 when the target\'s cache is written, printing '
       '"$name <slug>: clean"\non stdout. Exits 1 when refused, having '
-      'written nothing, with the reason on stderr.';
+      'written nothing, with the reason on stderr;\na missing target or '
+      '--$successorOption is a refusal, not a usage error.';
 }
 
 final class _MutationCommand extends Command<int> {

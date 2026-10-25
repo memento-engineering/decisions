@@ -42,17 +42,24 @@ belongs there too.
 ## Decision Outcome
 
 **Every `decisions` verb writes its result to standard output and its refusals, errors and usage
-messages to standard error; exit codes stay `0`, `1` for a refusal and `64` for a malformed
-invocation.**
+errors to standard error. Exit codes do not change: `0`, `1` for a refusal, and `64` for a usage
+error.**
 
 1. **A result is what the verb was asked for.** The force verbs' `<verb> <slug>: clean`, the
    path and `next:` lines of `new`, lint's findings, doctor's findings, index and search output
    and their `--json` forms all go to standard output. Lint and doctor findings are their verb's
-   result even when they exit non-zero, so they stay there.
+   result even when they exit non-zero, so they stay there. Help the caller asks for — `--help`
+   or `decisions help <verb>` — is a result too: it goes to standard output and exits `0`. Only a
+   usage error (an unknown option, or a missing input to a verb that treats one as a usage
+   error) prints its usage on standard error, with exit `64`.
 2. **A refusal is not a result.** `obsolete`, `update` and `vacate` write `error: <reason>` to
-   the error sink for a missing target slug, a missing successor and every refused mutation,
-   exactly as `new` does. They have no `--json` mode and no result schema, so no JSON consumer
-   reads a refusal object from standard output; none is introduced.
+   the error sink for every refused mutation, as `new` does for its refusals. They also count a
+   missing target slug or a missing successor as a refusal: `error: <reason>` on standard error
+   with exit `1`, which is what they exited before this change. `new` and `lint` treat a
+   missing required input as a usage error instead (exit `64`, per
+   `decisions-new-owns-the-write-mechanics`). This entry moves streams, not exit codes, so that
+   difference stays. They have no `--json` mode and no result schema, so no JSON consumer reads
+   a refusal object from standard output; none is introduced.
 3. **The help says so.** Each force verb's `--help` keeps its one-line summary for
    `decisions help` and adds its contract: exit 0 with `"<verb> <slug>: clean"` on stdout, exit
    1 with nothing written and the reason on stderr. It prints through the command's output sink,

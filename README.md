@@ -73,7 +73,10 @@ decisions 0.4.0 (reads spec <= 1, writes spec 1)
 Exit codes are `0` for success, `1` for lint findings or a refused mutation, and `64` for a
 malformed invocation. `decisions lint docs/decisions` is therefore a CI gate on its own. A verb's
 result — lint's findings included — goes to standard output; a refusal, an error or a usage
-message goes to standard error, so a script can read standard output without filtering it.
+error goes to standard error, so a script can read standard output without filtering it. Help
+you ask for (`--help`, `decisions help <verb>`) is a result: it goes to standard output and exits
+`0`. `obsolete`, `update` and `vacate` refuse a missing target or successor with exit `1`, not
+`64`.
 
 Elsewhere — Intel Macs, Windows — run the same engine with the Dart SDK:
 

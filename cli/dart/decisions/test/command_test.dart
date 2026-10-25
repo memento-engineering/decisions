@@ -417,6 +417,8 @@ void main() {
       final help = output.toString().replaceAll('\n', ' ');
       expect(help, contains('"$verb <slug>: clean" on stdout'));
       expect(help, contains('with the reason on stderr'));
+      expect(help, contains('a missing target or --'));
+      expect(help, contains('is a refusal, not a usage error'));
     }
   });
 }
