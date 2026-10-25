@@ -77,6 +77,15 @@ Put the same table under `[defaults.rig.imports.decisions]` in `city.toml`. *v1.
 into each rig added **afterwards** by a `gc rig add` **without** `--include`. It does not reach
 rigs that already exist; import those per rig.
 
+`gc rig add` copies the table but does not install it. Until you run `gc import install`, the
+whole city fails to load with `remote import ... is not installed (missing packs.lock entry)`:
+
+```sh
+gc rig add ~/src/api --name api
+gc import install
+gc import check
+```
+
 ### City-wide
 
 A city-level import reaches the mayor **and** every rig's agents:

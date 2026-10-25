@@ -32,3 +32,74 @@ jobs:
       - run: dart analyze
       - run: dart format --output=none --set-exit-if-changed .
       - run: dart test
+
+  # The pack README's claims about gc behaviour, checked against a real gc by
+  # gc_pack/e2e.sh. Each binary is a pinned release with its sha256 held here,
+  # so bumping one is one version/sha pair.
+  gc_pack:
+    runs-on: ubuntu-24.04
+    env:
+      GC_VERSION: 1.5.1
+      GC_SHA256: 3a405a5455eb6216f7f65d4516a614e4913d83bc8964df8800e0533ab2d40044
+      # gc init refuses bd below 1.3.0.
+      BD_VERSION: 1.3.2
+      BD_SHA256: c6ea3281f6ff82628351b2d0967c9eb85862c8a0ec0ebc24e63e645c8b02462e
+      DOLT_VERSION: 2.4.2
+      DOLT_SHA256: 5d95a271149dc6ea97f47157af7ba9a0df5e8d4e9bbac4d79c169f2faa3cfb9e
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # tags too: the --include scenario needs this repo's prefixed tags.
+          fetch-depth: 0
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: 3.12.2
+      - name: Install gc's hard dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git tmux lsof jq util-linux procps shellcheck
+      - name: Download gc, bd and dolt
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/bin" "$RUNNER_TEMP/dl"
+          cd "$RUNNER_TEMP/dl"
+
+          gc_tar="gascity_${GC_VERSION}_linux_amd64.tar.gz"
+          gc_url="https://github.com/gastownhall/gascity/releases/download/v${GC_VERSION}"
+          curl -fsSLO "$gc_url/$gc_tar"
+          curl -fsSLO "$gc_url/gascity_${GC_VERSION}_checksums.txt"
+          echo "${GC_SHA256}  $gc_tar" | sha256sum -c -
+          grep " $gc_tar\$" "gascity_${GC_VERSION}_checksums.txt" | sha256sum -c -
+          tar -xzf "$gc_tar" gc
+
+          bd_tar="beads_${BD_VERSION}_linux_amd64.tar.gz"
+          bd_url="https://github.com/gastownhall/beads/releases/download/v${BD_VERSION}"
+          curl -fsSLO "$bd_url/$bd_tar"
+          curl -fsSLO "$bd_url/checksums.txt"
+          echo "${BD_SHA256}  $bd_tar" | sha256sum -c -
+          grep " $bd_tar\$" checksums.txt | sha256sum -c -
+          tar -xzf "$bd_tar" bd
+
+          dolt_tar=dolt-linux-amd64.tar.gz
+          curl -fsSLO "https://github.com/dolthub/dolt/releases/download/v${DOLT_VERSION}/$dolt_tar"
+          echo "${DOLT_SHA256}  $dolt_tar" | sha256sum -c -
+          tar -xzf "$dolt_tar" dolt-linux-amd64/bin/dolt
+
+          install -m 0755 gc bd dolt-linux-amd64/bin/dolt "$RUNNER_TEMP/bin/"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+      - name: Compile decisions onto PATH
+        working-directory: cli/dart/decisions
+        run: |
+          dart pub get
+          dart compile exe bin/decisions.dart -o "$RUNNER_TEMP/bin/decisions"
+      # gc clones the pack source over file://; keep the checked-out (merge)
+      # commit reachable from a ref.
+      - run: git branch -f gc-e2e HEAD
+      - run: shellcheck gc_pack/e2e.sh
+      # The script sandboxes HOME, GC_HOME and XDG itself and prints the
+      # versions it runs; nothing calls gc outside that sandbox.
+      - name: gc_pack/e2e.sh
+        run: |
+          GC_BIN="$RUNNER_TEMP/bin/gc" BD_BIN="$RUNNER_TEMP/bin/bd" \
+            DOLT_BIN="$RUNNER_TEMP/bin/dolt" DECISIONS_BIN="$RUNNER_TEMP/bin/decisions" \
+            gc_pack/e2e.sh

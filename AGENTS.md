@@ -34,6 +34,7 @@ preference.
 | `cli/dart/decisions/` | the deterministic engine; no grid dependency |
 | `grid_assets/decisions_grid_assets/` | the tier-2 grid adapter |
 | `gc_pack/decisions/` | the Gas City pack — generated skill stubs, a doctor shim over `decisions doctor`, its install page |
+| `gc_pack/e2e.sh` | maintainer harness: runs the pack through a real gc, one scenario per claim in the pack README |
 
 Five surfaces are **copies or generated output**. Editing the copy is always wrong: the test
 named beside each one fails, and its generator (`assets install`, `generate_grid_assets`,
@@ -68,6 +69,22 @@ cd cli/dart/decisions            && dart pub get && dart analyze && dart test
 cd grid_assets/decisions_grid_assets && dart pub get && dart analyze && dart test
 dart format --output=none --set-exit-if-changed .   # in each package
 ```
+
+`gc_pack_test.dart` pins the pack's bytes; `gc_pack/e2e.sh` pins what the pack README says gc
+does with them. CI's `gc_pack` job runs it against gc 1.5.1 on ubuntu. To run it locally, point
+it at the binaries (each defaults to `PATH`) from the repo root:
+
+```bash
+GC_BIN=/path/to/gc BD_BIN=/path/to/bd DOLT_BIN=/path/to/dolt gc_pack/e2e.sh
+```
+
+It needs bd 1.3.0 or newer, plus tmux, jq, flock and lsof for `gc init`. `DECISIONS_BIN` is
+optional: unset, the script compiles `decisions` from this checkout. It imports the pack as
+committed at `HEAD`, so commit pack edits before running it. Everything runs in a temp sandbox
+(its own `HOME`, `GC_HOME` and XDG dirs; cities created with `--no-start`), so it never touches
+your own gc, supervisor or cities. `E2E_ONLY="s2_rig_level s9_cache_wipe"` runs a subset,
+`E2E_VERBOSE=1` prints every scenario's log, and `E2E_KEEP=1` keeps the sandbox.
+If a scenario fails because gc changed, fix the README claim it names in the same change.
 
 Lint this repo's own register — it is self-hosted, so this is a real check, not a demo:
 
