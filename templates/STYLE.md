@@ -9,7 +9,7 @@ the force vocabulary, and nothing here can change them.
 - State the decision, not the topic: "Releases are cut from main", not "Release branching".
 - One sentence, sentence case, no full stop. A title that needs two clauses may join them with a
   semicolon.
-- The slug is the title in kebab case, shortened only where the title is long.
+- Derive the slug from the title, shortening it only where the title is long.
 
 ## Voice
 

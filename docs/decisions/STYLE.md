@@ -1,7 +1,9 @@
 # Style guide
 
 How entries in this register are written. It governs the prose only; [`SPEC.md`](../../SPEC.md)
-fixes everything else.
+fixes everything else. The earliest entries predate it and depart from it in places (one says
+"we", one has no `Good` or `Bad` lines); an accepted body is immutable, so they stay as written
+and new entries follow this guide.
 
 ## Titles
 
@@ -37,7 +39,7 @@ fixes everything else.
 ## Consequences
 
 - `* Good, because ...` and `* Bad, because ...`, each a full sentence.
-- Every entry has at least one honest `Bad`: the release a register now needs, the step that
+- Name at least one honest `Bad`: the release a register now needs, the step that
   became manual, the case that is now skipped silently.
 
 ## Form
@@ -46,5 +48,6 @@ fixes everything else.
 - Paths, verbs, flags, slugs and field names in backticks.
 - Cite an entry in this register by slug or a relative link to its file; another register's
   entry as `repo#slug`.
-- Wrap at 100 columns.
-- Roughly 400 to 750 words. An entry that runs longer is usually two decisions.
+- Wrap near 100 columns; a long link or code span may run past it.
+- Roughly 300 to 750 words, a narrow ruling at the short end. An entry that runs longer is
+  usually two decisions.

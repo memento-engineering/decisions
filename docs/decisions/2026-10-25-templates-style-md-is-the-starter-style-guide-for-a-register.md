@@ -47,7 +47,8 @@ On 2026-10-24 nico ruled the scope of the wider change: user docs only, a short 
    engine falls back to. A register without a `STYLE.md` has no style guide, exactly as the
    no-inheritance ruling (nico, 2026-10-24) requires.
 3. **This register keeps its own.** `docs/decisions/STYLE.md` describes how entries here are
-   actually written, read off the existing entries rather than invented.
+   actually written, read off the existing entries rather than invented. Where the earliest
+   entries depart from it, it follows the recent ones and says so.
 4. **The README teaches a tier-1 agent in one place.** After installing the binary, an adopter
    adds one line to `AGENTS.md` pointing at `decisions prime`, optionally runs
    `decisions skills install`, and copies the starter for house style. The README links `SPEC.md`

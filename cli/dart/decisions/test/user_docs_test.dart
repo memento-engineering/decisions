@@ -30,6 +30,21 @@ void main() {
       }
     });
 
+    test('and the tier table names no verb the binary lacks', () {
+      final whatYouGet = readme
+          .split('\n')
+          .singleWhere((line) => line.startsWith('| 1 — CLI |'))
+          .split('|')[2];
+      final named = RegExp('`([^`]+)`')
+          .allMatches(whatYouGet)
+          .expand((span) => span[1]!.split(' / '))
+          .map((verb) => verb.replaceFirst('decisions ', '').trim());
+      expect(named, isNotEmpty);
+      for (final verb in named) {
+        expect(verbs, contains(verb), reason: verb);
+      }
+    });
+
     test('in the Status section', () {
       final status = readme.substring(readme.indexOf('\n## Status\n'));
       for (final verb in verbs) {
