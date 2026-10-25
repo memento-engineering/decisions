@@ -53,7 +53,7 @@ brew install memento-engineering/tap/decisions
 Or pin an exact version by download and checksum, which is what CI should do:
 
 ```sh
-version=0.3.0
+version=0.4.0
 target=linux-x64   # or linux-arm64, macos-arm64
 base="https://github.com/memento-engineering/decisions/releases/download/decisions-v$version"
 curl -fsSLO "$base/decisions-$version-$target"
@@ -61,13 +61,13 @@ curl -fsSL "$base/SHA256SUMS" | grep " decisions-$version-$target\$" | sha256sum
 install -m 0755 "decisions-$version-$target" /usr/local/bin/decisions
 ```
 
-On macOS, use `shasum -a 256 -c -` in place of `sha256sum -c -`. Prereleases (`0.3.0-rc.1`) are
+On macOS, use `shasum -a 256 -c -` in place of `sha256sum -c -`. Prereleases (`0.4.0-rc.1`) are
 downloaded the same way.
 
 `decisions --version` names the version and the spec range the binary reads and writes:
 
 ```text
-decisions 0.3.0 (reads spec <= 1, writes spec 1)
+decisions 0.4.0 (reads spec <= 1, writes spec 1)
 ```
 
 Exit codes are `0` for success, `1` for lint findings or a refused mutation, and `64` for a
@@ -77,7 +77,7 @@ Elsewhere — Intel Macs, Windows — run the same engine with the Dart SDK:
 
 ```sh
 dart pub global activate --source git https://github.com/memento-engineering/decisions \
-  --git-path cli/dart/decisions --git-ref decisions-v0.3.0
+  --git-path cli/dart/decisions --git-ref decisions-v0.4.0
 ```
 
 ## Install in Gas City
@@ -90,8 +90,8 @@ install page: pinning, rig and city imports, upgrading, and the doctor check.
 ## Teach your agent the register
 
 The binary carries the `decide` and `ratify` skills, so the instructions an agent follows always
-match the engine that lints its work. These verbs arrive in the release after 0.3.0; a 0.3.0
-binary rejects them as unknown commands. One line in `AGENTS.md` (or `CLAUDE.md`) is enough:
+match the engine that lints its work. These verbs arrive in 0.4.0; a 0.3.0 binary rejects them
+as unknown commands. One line in `AGENTS.md` (or `CLAUDE.md`) is enough:
 
 ```markdown
 This repo keeps a decision register in `docs/decisions/`: run `decisions prime` before deciding or changing anything.
