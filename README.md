@@ -19,7 +19,7 @@ by copying `templates/` and writing files.
 |---|---|
 | [`SPEC.md`](SPEC.md) | the format — front matter, force, edges, versioning, the docket |
 | `schema/` | JSON Schema for entry front matter and machine-readable output |
-| `templates/` | entry + rendered-view templates |
+| `templates/` | entry and rendered-view templates, and a starter `STYLE.md` |
 | `skills/` | the judgement half — language-neutral markdown |
 | `rubrics/` | `decision-alignment`, the committee lens |
 | `docs/decisions/` | this repo's own register (self-hosted) |
@@ -31,7 +31,7 @@ by copying `templates/` and writing files.
 | Tier | What you get | Needs |
 |---|---|---|
 | 0 — prose | format, templates, a greppable register, skills as plain markdown | nothing |
-| 1 — CLI | `decisions index / search / lint / new / obsolete / update / vacate`, JSON out | the [`decisions` binary](#install-the-cli), or any ecosystem impl |
+| 1 — CLI | `decisions lint / index / search / new / update / obsolete / vacate / migrate-legacy`, `prime / guide / skills` for agents, `doctor`; JSON out | the [`decisions` binary](#install-the-cli), or any ecosystem impl |
 | 2 — grid | overlay-installed skills, the committee lens, roster-wide cross-repo index and search, decision beads | a station |
 
 ## Install the CLI
@@ -76,27 +76,31 @@ dart pub global activate --source git https://github.com/memento-engineering/dec
   --git-path cli/dart/decisions --git-ref decisions-v0.3.0
 ```
 
-## Point your agent at the binary
+## Teach your agent the register
 
 The binary carries the `decide` and `ratify` skills, so the instructions an agent follows always
 match the engine that lints its work. These verbs arrive in the release after 0.3.0; a 0.3.0
 binary rejects them as unknown commands. One line in `AGENTS.md` (or `CLAUDE.md`) is enough:
 
 ```markdown
-This repo keeps a decision register: run `decisions prime` before deciding or changing anything.
+This repo keeps a decision register in `docs/decisions/`: run `decisions prime` before deciding or changing anything.
 ```
 
 - `decisions prime` — a short orientation: the register, whether it has a `STYLE.md`, each verb
   and when to reach for it.
 - `decisions guide [topic]` — lists the guides, or prints one (`decide`, `ratify`) followed by
   the register's `STYLE.md` when it has one.
-- `decisions skills install <dir>` — for agents that load skills from a directory, writes
-  `<dir>/<name>/SKILL.md` stubs that run `decisions guide <name>`. Rerunning overwrites earlier
-  stubs and refuses to touch any other file:
+- `decisions skills install <dir>` — optional, for agents that load skills from a directory:
+  writes `<dir>/<name>/SKILL.md` stubs that run `decisions guide <name>`. Rerunning overwrites
+  earlier stubs and refuses to touch any other file:
 
   ```sh
   decisions skills install .claude/skills
   ```
+
+For your register's prose style, copy [`templates/STYLE.md`](templates/STYLE.md) to
+`docs/decisions/STYLE.md` and edit it. It covers voice, titles and length, never the format; the
+engine does not read it as an entry ([`SPEC.md`](SPEC.md#register-documents-and-the-style-guide)).
 
 ## Search for precedent
 
@@ -185,8 +189,9 @@ linked to the work graph**.
 The format is settled at spec 1 and self-hosted in [`docs/decisions/`](docs/decisions).
 
 All three tiers are built. Tier 0 works today by copying `templates/`. Tier 1 is the Dart engine
-in [`cli/dart/decisions/`](cli/dart/decisions) — `index`, `search`, `lint`, `new`, `migrate-legacy`,
-`obsolete`, `update`, `vacate`. Tier 2 is
+in [`cli/dart/decisions/`](cli/dart/decisions): `lint`, `index`, `search`, `new`, `update`,
+`obsolete`, `vacate` and `migrate-legacy` work the register; `prime`, `guide` and `skills` teach an
+agent to use it; `doctor` checks that the binary can work this register. Tier 2 is
 [`grid_assets/decisions_grid_assets/`](grid_assets/decisions_grid_assets), which installs the
 `decide` and `ratify` skills, vends the `decision-alignment` rubric, and composes a
 `<station> decisions` command over a live roster.
