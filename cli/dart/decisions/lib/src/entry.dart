@@ -193,7 +193,14 @@ DecisionEntry parseEntry(String file) {
     throw DecisionParseException(file, 'empty Markdown body');
   }
 
-  final Object? document = loadYaml(match.group(1)!);
+  final Object? document;
+  try {
+    document = loadYaml(match.group(1)!);
+  } on YamlException catch (error) {
+    // Malformed YAML is a malformed entry, reported like any other, so a
+    // verb that reads the register names it rather than crashing on it.
+    throw DecisionParseException(file, 'front matter: ${error.message}');
+  }
   if (document is! YamlMap) {
     throw DecisionParseException(file, 'front matter is not a mapping');
   }

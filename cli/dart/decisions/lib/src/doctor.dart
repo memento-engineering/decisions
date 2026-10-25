@@ -150,12 +150,15 @@ abstract interface class DecisionDoctor {
   /// and, when [skillsDirectory] is given, the skill stubs in it.
   ///
   /// A `null` [registerPath] inspects no register: only the binary and
-  /// skills checks run. [command] is how this binary is invoked (`decisions`,
-  /// or `<station> decisions`), which is what a current stub names.
+  /// skills checks run. [repoRoot] is the root the register's surfaces
+  /// resolve against, which the `lint` a finding suggests must be given.
+  /// [command] is how this binary is invoked (`decisions`, or
+  /// `<station> decisions`), which is what a current stub names.
   DoctorReport examine({
     required String? registerPath,
     required String? skillsDirectory,
     required String command,
+    String repoRoot = '.',
   });
 }
 
@@ -193,6 +196,7 @@ final class DecisionDoctorService implements DecisionDoctor {
     required String? registerPath,
     required String? skillsDirectory,
     required String command,
+    String repoRoot = '.',
   }) {
     final findings = <DoctorFinding>[
       DoctorFinding(
@@ -202,7 +206,7 @@ final class DecisionDoctorService implements DecisionDoctor {
             'decisions $version reads spec <= $supportedSpec, '
             'writes spec $supportedSpec',
       ),
-      if (registerPath != null) ..._register(registerPath, command),
+      if (registerPath != null) ..._register(registerPath, repoRoot, command),
       if (skillsDirectory != null) ..._skills(skillsDirectory, command),
     ];
     return DoctorReport(
@@ -213,7 +217,11 @@ final class DecisionDoctorService implements DecisionDoctor {
     );
   }
 
-  List<DoctorFinding> _register(String register, String command) {
+  List<DoctorFinding> _register(
+    String register,
+    String repoRoot,
+    String command,
+  ) {
     final type = FileSystemEntity.typeSync(register);
     if (type == FileSystemEntityType.notFound) {
       return [
@@ -280,9 +288,6 @@ final class DecisionDoctorService implements DecisionDoctor {
         parseEntry(file);
       } on DecisionParseException catch (error) {
         unparsed.add((file, error.message));
-      } on FormatException catch (error) {
-        // Malformed YAML front matter surfaces as a YamlException.
-        unparsed.add((file, 'front matter: ${error.message}'));
       } on FileSystemException catch (error) {
         unparsed.add((file, 'cannot read: ${_reason(error)}'));
       }
@@ -325,7 +330,10 @@ final class DecisionDoctorService implements DecisionDoctor {
               '${_entries(unparsed.length)} '
               '${unparsed.length == 1 ? 'does' : 'do'} not parse '
               '(${unparsed.first.$1}: ${unparsed.first.$2})',
-          hint: '`$command lint $register` names each one',
+          hint:
+              '`$command lint $register'
+              '${p.normalize(repoRoot) == '.' ? '' : ' --repo-root $repoRoot'}` '
+              'names each one',
         ),
       DoctorFinding(
         check: 'style',
@@ -341,6 +349,22 @@ final class DecisionDoctorService implements DecisionDoctor {
     final findings = <DoctorFinding>[];
     final install = '`$command skills install $directory`';
     final known = {for (final guide in guides) guide.name};
+
+    final type = FileSystemEntity.typeSync(directory);
+    if (type != FileSystemEntityType.notFound &&
+        type != FileSystemEntityType.directory) {
+      // `skills install` refuses this path too, so naming it would be no fix.
+      return [
+        DoctorFinding(
+          check: 'skills',
+          severity: DoctorSeverity.warn,
+          message: '$directory is not a directory, so it holds no stubs',
+          hint:
+              'pass --skills naming the skills directory, or move $directory '
+              'aside and run $install',
+        ),
+      ];
+    }
 
     for (final guide in guides) {
       final path = p.join(directory, guide.name, 'SKILL.md');

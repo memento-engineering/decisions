@@ -95,6 +95,7 @@ final class DoctorCommand extends Command<int> {
                 ),
       skillsDirectory: results.option('skills'),
       command: commandInvocation(this),
+      repoRoot: results.option('repo-root')!,
     );
     if (results.flag('json')) {
       _output.writeln(jsonEncode(report.toJson()));

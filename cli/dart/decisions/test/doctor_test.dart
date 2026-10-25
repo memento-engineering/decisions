@@ -23,15 +23,16 @@ final class FakeDecisionDoctor implements DecisionDoctor {
   FakeDecisionDoctor(this.report);
 
   final DoctorReport report;
-  final calls = <(String?, String?, String)>[];
+  final calls = <(String?, String?, String, String)>[];
 
   @override
   DoctorReport examine({
     required String? registerPath,
     required String? skillsDirectory,
     required String command,
+    String repoRoot = '.',
   }) {
-    calls.add((registerPath, skillsDirectory, command));
+    calls.add((registerPath, skillsDirectory, command, repoRoot));
     return report;
   }
 }
@@ -80,12 +81,16 @@ void main() {
     _entry(slug, spec: spec, extraKey: extraKey),
   );
 
-  DoctorReport examine({String? registerPath, String? skillsDirectory}) =>
-      _service.examine(
-        registerPath: registerPath,
-        skillsDirectory: skillsDirectory,
-        command: 'decisions',
-      );
+  DoctorReport examine({
+    String? registerPath,
+    String? skillsDirectory,
+    String repoRoot = '.',
+  }) => _service.examine(
+    registerPath: registerPath,
+    skillsDirectory: skillsDirectory,
+    command: 'decisions',
+    repoRoot: repoRoot,
+  );
 
   DoctorFinding only(DoctorReport report, String check) =>
       report.findings.singleWhere((finding) => finding.check == check);
@@ -167,6 +172,20 @@ void main() {
       expect(parse.hint, '`decisions lint $register` names each one');
     });
 
+    test('the lint the parse hint names carries a non-default repo root', () {
+      write(p.join(register, '2026-01-01-broken.md'), 'no front matter\n');
+
+      final parse = only(
+        examine(registerPath: register, repoRoot: sandbox.path),
+        'parse',
+      );
+
+      expect(
+        parse.hint,
+        '`decisions lint $register --repo-root ${sandbox.path}` names each one',
+      );
+    });
+
     test('malformed front matter YAML fails parse without crashing', () {
       write(
         p.join(register, '2026-01-01-bad-yaml.md'),
@@ -176,6 +195,16 @@ void main() {
       final parse = only(examine(registerPath: register), 'parse');
       expect(parse.severity, DoctorSeverity.fail);
       expect(parse.message, contains('front matter'));
+
+      // The lint the hint names reports the same entry instead of crashing.
+      final lint = const DecisionLintService().lint(
+        registerPath: register,
+        repoRoot: sandbox.path,
+      );
+      expect(lint.diagnostics.map((diagnostic) => diagnostic.ruleId), [
+        DecisionLintRules.entrySchema,
+      ]);
+      expect(lint.diagnostics.single.message, contains('front matter'));
     });
 
     test('the headline counts the other findings needing action', () {
@@ -265,6 +294,24 @@ void main() {
       expect(report.exitCode, 1);
       expect(report.headline, endsWith(' (and 1 more)'));
       expect(report.worst.message, contains('no stub for guide decide'));
+    });
+
+    test('a file where the skills directory belongs is not a fixable stub', () {
+      write(skills, 'x');
+
+      final report = examine(skillsDirectory: skills);
+      final finding = only(report, 'skills');
+
+      expect(report.exitCode, 1);
+      expect(
+        finding.message,
+        '$skills is not a directory, so it holds no stubs',
+      );
+      expect(
+        finding.hint,
+        contains('pass --skills naming the skills directory'),
+      );
+      expect(finding.hint, contains('move $skills aside'));
     });
 
     test('an adopter skill at a guide path is info, never judged', () {
@@ -375,10 +422,10 @@ void main() {
       await runner(StringBuffer(), doctor).run(['doctor', '--no-register']);
 
       expect(doctor.calls, [
-        ('docs/decisions', null, 'decisions'),
-        (p.join('x', 'docs', 'decisions'), null, 'decisions'),
-        ('r', 's', 'decisions'),
-        (null, null, 'decisions'),
+        ('docs/decisions', null, 'decisions', '.'),
+        (p.join('x', 'docs', 'decisions'), null, 'decisions', 'x'),
+        ('r', 's', 'decisions', '.'),
+        (null, null, 'decisions', '.'),
       ]);
     });
 
