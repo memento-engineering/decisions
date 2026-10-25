@@ -124,10 +124,29 @@ final _slugPattern = RegExp(r'^[a-z0-9]+(?:-[a-z0-9]+)*$');
 final _supersededStatusPattern = RegExp(
   r'^superseded by (?:[a-z0-9_.-]+#)?[a-z0-9]+(?:-[a-z0-9]+)*$',
 );
+final _registerDocumentPattern = RegExp(r'^[A-Z][A-Z0-9_-]*\.md$');
 
-/// Reads every `*.md` entry in the register rooted at [directory].
+/// Whether the file at [path] is a decision entry candidate of its register.
 ///
-/// Subdirectories (notably `views/`) are not entries and are skipped. When
+/// A register directory holds entries and, beside them, register documents
+/// such as `README.md` and the register's `STYLE.md` style guide. A Markdown
+/// file whose basename is all uppercase (`^[A-Z][A-Z0-9_-]*\.md$`) is a
+/// register document and never an entry. Every other `*.md` file is an entry
+/// candidate, so a misnamed entry is still parsed and reported rather than
+/// silently skipped.
+///
+/// This is the one predicate every register walk applies: reading, linting
+/// and the force mutations' candidate copy.
+bool isDecisionEntryFile(String path) {
+  final name = p.basename(path);
+  return name.endsWith('.md') && !_registerDocumentPattern.hasMatch(name);
+}
+
+/// Reads every entry in the register rooted at [directory].
+///
+/// Subdirectories (notably `views/`) and register documents such as
+/// `README.md` and `STYLE.md` are not entries and are skipped; see
+/// [isDecisionEntryFile]. When
 /// [onParseError] is absent, the first malformed entry is thrown exactly as
 /// before. When supplied, each [DecisionParseException] is reported and the
 /// remaining files are parsed.
@@ -143,7 +162,7 @@ List<DecisionEntry> readRegister(
       dir
           .listSync()
           .whereType<File>()
-          .where((file) => file.path.endsWith('.md'))
+          .where((file) => isDecisionEntryFile(file.path))
           .toList()
         ..sort((left, right) => left.path.compareTo(right.path));
   final entries = <DecisionEntry>[];

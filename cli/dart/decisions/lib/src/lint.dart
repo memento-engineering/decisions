@@ -157,7 +157,7 @@ final class DecisionLintService implements DecisionLinter {
         directory
             .listSync()
             .whereType<File>()
-            .where((file) => file.path.endsWith('.md'))
+            .where((file) => isDecisionEntryFile(file.path))
             .toList()
           ..sort((left, right) => left.path.compareTo(right.path));
 
