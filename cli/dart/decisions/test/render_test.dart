@@ -33,7 +33,8 @@ void main() {
     // amending an entry, then the binary's agent instructions, which govern
     // tooling, then the doctor verb, which governs tooling, then the starter
     // style guide, which adds a template without amending an entry, then the
-    // Gas City pack, which governs a delivery channel and amends no entry.
+    // Gas City pack, which governs a delivery channel and amends no entry, its
+    // lineage named for the ruling that it ships no orders.
     expect(views.map((view) => view.fileName), [
       '0001-the-decision-register.md',
       '0002-the-decisions-cli-ships-as-prebuilt-binaries.md',
@@ -43,7 +44,8 @@ void main() {
       '0005-decisions-doctor-answers-whether-this-binary-can-work-this-'
           'register.md',
       '0006-templates-style-md-is-the-starter-style-guide-for-a-register.md',
-      '0007-the-register-ships-to-gas-city-as-a-pack-of-guide-stubs.md',
+      '0007-the-gas-city-pack-ships-no-orders-and-register-health-belongs-in-'
+          'each-rigs-ci.md',
     ]);
     final combined = views.map((view) => view.content).join('\n');
     final graph = DecisionGraph(readRegister(_selfHostedRegister));
@@ -51,7 +53,7 @@ void main() {
         .where((entry) => graph.isBinding(entry.slug))
         .toList();
 
-    expect(binding, hasLength(18));
+    expect(binding, hasLength(19));
     for (final entry in binding) {
       expect(combined, contains('<a id="${entry.slug}"></a>'));
     }

@@ -76,6 +76,11 @@ void main() {
         beads['each-release-prints-and-smoke-tests-its-gas-city-pin'],
         'dec-p7f.7.5',
       );
+      expect(
+        beads['the-gas-city-pack-ships-no-orders-and-register-health-belongs-'
+            'in-each-rigs-ci'],
+        'dec-kch',
+      );
       beads.remove('docket-triggers');
       beads.remove('lexical-precedent-search');
       beads.remove('force-mutations-scope-cleanliness-to-touched-entries');
@@ -99,6 +104,10 @@ void main() {
       );
       beads.remove('the-register-ships-to-gas-city-as-a-pack-of-guide-stubs');
       beads.remove('each-release-prints-and-smoke-tests-its-gas-city-pin');
+      beads.remove(
+        'the-gas-city-pack-ships-no-orders-and-register-health-belongs-in-'
+        'each-rigs-ci',
+      );
       expect(beads.values, everyElement(isNull));
       expect(entries.map((entry) => entry.legacyId), everyElement(isNull));
     });
