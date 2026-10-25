@@ -184,6 +184,26 @@ void main() {
       );
     });
 
+    test('ends every stub with the fallback for a missing binary', () async {
+      expect(
+        await _runner(StringBuffer()).run(['skills', 'install', skills]),
+        0,
+      );
+      for (final name in ['decide', 'ratify']) {
+        expect(stub(name), endsWith('\n\n$skillStubFallback\n'), reason: name);
+      }
+      expect(
+        skillStubFallback,
+        allOf(
+          contains('If `decisions` is not installed, install it'),
+          contains('brew install memento-engineering/tap/decisions'),
+          contains('a pinned release download'),
+          contains('or follow `templates/decision.md` and `SPEC.md`'),
+        ),
+      );
+      expect(skillStubFallback, isNot(contains('\n')), reason: 'one line');
+    });
+
     test('overwrites an earlier stub', () async {
       final path = p.join(skills, 'decide', 'SKILL.md');
       File(path)

@@ -19,8 +19,17 @@ const _styleGuide = 'STYLE.md';
 const skillStubMarker =
     '<!-- decisions skills install: stub; reinstalling overwrites this file -->';
 
-/// Renders the `SKILL.md` stub for [guide]: the canonical front matter, and a
-/// body that defers to `<command> guide <name>`.
+/// The stub's one fallback line, for an agent whose `decisions` binary is
+/// missing: install it, or follow the tier-0 template and spec by hand.
+const skillStubFallback =
+    'If `decisions` is not installed, install it '
+    '(`brew install memento-engineering/tap/decisions`, or a pinned release '
+    'download from https://github.com/memento-engineering/decisions/releases) '
+    'or follow `templates/decision.md` and `SPEC.md` from that repository.';
+
+/// Renders the `SKILL.md` stub for [guide]: the canonical front matter, a
+/// body that defers to `<command> guide <name>`, and [skillStubFallback] for
+/// when the binary is missing.
 String skillStub(Guide guide, {String command = 'decisions'}) =>
     '''
 ---
@@ -34,6 +43,8 @@ Run `$command guide ${guide.name}` and follow the instructions it prints.
 They ship inside the installed `decisions` binary, so they always match the
 engine that will lint your work, and they carry this register's STYLE.md
 when it has one.
+
+$skillStubFallback
 ''';
 
 /// `decisions prime`: a short orientation for an agent arriving in a repo.

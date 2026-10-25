@@ -54,6 +54,11 @@ void main() {
         beads['the-decisions-binary-carries-its-own-agent-instructions'],
         'dec-mtj',
       );
+      expect(
+        beads['a-skill-stub-names-its-fallback-when-the-decisions-binary-is-'
+            'missing'],
+        'dec-2ow',
+      );
       beads.remove('docket-triggers');
       beads.remove('lexical-precedent-search');
       beads.remove('force-mutations-scope-cleanliness-to-touched-entries');
@@ -66,6 +71,9 @@ void main() {
       );
       beads.remove('decisions-new-owns-the-write-mechanics');
       beads.remove('the-decisions-binary-carries-its-own-agent-instructions');
+      beads.remove(
+        'a-skill-stub-names-its-fallback-when-the-decisions-binary-is-missing',
+      );
       expect(beads.values, everyElement(isNull));
       expect(entries.map((entry) => entry.legacyId), everyElement(isNull));
     });
