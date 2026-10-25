@@ -79,7 +79,8 @@ dart pub global activate --source git https://github.com/memento-engineering/dec
 ## Point your agent at the binary
 
 The binary carries the `decide` and `ratify` skills, so the instructions an agent follows always
-match the engine that lints its work. One line in `AGENTS.md` (or `CLAUDE.md`) is enough:
+match the engine that lints its work. These verbs arrive in the release after 0.3.0; a 0.3.0
+binary rejects them as unknown commands. One line in `AGENTS.md` (or `CLAUDE.md`) is enough:
 
 ```markdown
 This repo keeps a decision register: run `decisions prime` before deciding or changing anything.

@@ -50,8 +50,11 @@ the binary and adds one line to `AGENTS.md` pointing at `decisions prime`; nothi
    `<verb> --help`. It never restates a verb's contract, and it says plainly when the register is
    missing. It lists the verbs its host actually carries, so a new verb appears without editing it.
 3. **`decisions guide [topic]`** lists the guides, or prints one skill body followed by the
-   register's own `STYLE.md` under a heading that names the file. The style guide is per register:
-   a register gets only its own, never one inherited across the roster (nico, 2026-10-24).
+   register's own `STYLE.md` under a heading that names the file. What `STYLE.md` is, and why the
+   engine does not read it as an entry, is
+   `decisions#a-registers-style-md-is-its-style-guide-and-uppercase-files-are-not-entries`: one per
+   register, never inherited across the roster (nico, 2026-10-24). These verbs depend on it: an
+   engine without it reads `STYLE.md` as a malformed entry and fails `decisions lint`.
 4. **`decisions skills install <dir>`** writes `<dir>/<name>/SKILL.md` stubs for agents that load
    skills from a directory. A stub carries the canonical front matter and says only to run
    `decisions guide <name>`; a marker line identifies it. Install overwrites its own stubs and

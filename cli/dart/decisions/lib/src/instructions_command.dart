@@ -139,7 +139,17 @@ final class GuideCommand extends Command<int> {
   String get name => 'guide';
 
   @override
-  String get description => 'Print a guide: how to decide, how to ratify.';
+  String get description =>
+      'Print a guide: how to decide, how to ratify.\n'
+      '\n'
+      'With no topic, lists the topics: '
+      '${_guides.map((guide) => guide.name).join(', ')}.\n'
+      'With one, prints that guide, then <register>/STYLE.md under a heading '
+      'naming\nthe file when the register has one. An unknown topic is a '
+      'usage error (exit 64).';
+
+  @override
+  String get invocation => '${_invocation(this)} guide [topic]';
 
   @override
   int run() {
@@ -212,7 +222,17 @@ final class _SkillsInstallCommand extends Command<int> {
 
   @override
   String get description =>
-      'Write <dir>/<name>/SKILL.md stubs; overwrite only earlier stubs.';
+      'Write <dir>/<name>/SKILL.md stubs; overwrite only earlier stubs.\n'
+      '\n'
+      'Writes one stub per guide (${_guides.map((g) => g.name).join(', ')}). '
+      'A stub carries the marker line\n'
+      '$skillStubMarker\n'
+      'and is overwritten by the next install. When anything else is in the '
+      'way (a\nnon-stub file, or a file where a directory belongs), install '
+      'names it, writes\nnothing and exits 1.';
+
+  @override
+  String get invocation => '${_invocation(this)} $name <dir>';
 
   @override
   int run() {
@@ -226,10 +246,7 @@ final class _SkillsInstallCommand extends Command<int> {
           command: command,
         ),
     };
-    final refused = [
-      for (final path in targets.keys)
-        if (_isForeign(path)) path,
-    ];
+    final refused = <String>{for (final path in targets.keys) ?_blocker(path)};
     if (refused.isNotEmpty) {
       for (final path in refused) {
         _error.writeln(
@@ -240,23 +257,42 @@ final class _SkillsInstallCommand extends Command<int> {
       return 1;
     }
     for (final MapEntry(key: path, value: stub) in targets.entries) {
-      File(path)
-        ..parent.createSync(recursive: true)
-        ..writeAsStringSync(stub);
+      try {
+        File(path)
+          ..parent.createSync(recursive: true)
+          ..writeAsStringSync(stub);
+      } on FileSystemException catch (e) {
+        _error.writeln('error: cannot write $path: ${e.osError?.message ?? e}');
+        return 1;
+      }
       _output.writeln('wrote $path');
     }
     return 0;
   }
 
-  /// Whether [path] holds something install must not overwrite.
-  static bool _isForeign(String path) =>
+  /// The path that stops install writing the stub at [path], or `null` when
+  /// nothing does.
+  ///
+  /// That is [path] itself when it holds anything but an earlier stub, or the
+  /// nearest existing ancestor when it is not a directory: a plain file at
+  /// `<dir>` or `<dir>/<name>` blocks the stub as surely as one at its path.
+  static String? _blocker(String path) =>
       switch (FileSystemEntity.typeSync(path, followLinks: false)) {
-        FileSystemEntityType.notFound => false,
-        FileSystemEntityType.file => !File(
-          path,
-        ).readAsStringSync().contains(skillStubMarker),
-        _ => true,
+        FileSystemEntityType.notFound => _blockingAncestor(path),
+        FileSystemEntityType.file =>
+          File(path).readAsStringSync().contains(skillStubMarker) ? null : path,
+        _ => path,
       };
+
+  /// The nearest existing ancestor of [path] when it is not a directory.
+  static String? _blockingAncestor(String path) {
+    for (var dir = p.dirname(path); ; dir = p.dirname(dir)) {
+      final type = FileSystemEntity.typeSync(dir);
+      if (type == FileSystemEntityType.directory) return null;
+      if (type != FileSystemEntityType.notFound) return dir;
+      if (p.dirname(dir) == dir) return null;
+    }
+  }
 }
 
 /// How [command]'s parent chain is invoked, e.g. `decisions` standalone or

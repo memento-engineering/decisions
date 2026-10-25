@@ -122,6 +122,14 @@ void main() {
       );
     });
 
+    test('help names the topic positional and the topics', () {
+      final usage = _runner(StringBuffer()).commands['guide']!.usage;
+
+      expect(usage, contains('Usage: decisions guide [topic]'));
+      expect(usage, contains('decide, ratify'));
+      expect(usage, contains('STYLE.md'));
+    });
+
     test('an unknown topic is a usage error naming the topics', () async {
       expect(
         () => _runner(StringBuffer()).run(['guide', 'nope']),
@@ -214,6 +222,62 @@ void main() {
         await _runner(StringBuffer()).run(['skills', 'install', skills]),
         1,
       );
+    });
+
+    test('refuses a file where a stub directory belongs', () async {
+      final ratify = p.join(skills, 'ratify');
+      File(ratify)
+        ..parent.createSync(recursive: true)
+        ..writeAsStringSync('mine\n');
+      final error = StringBuffer();
+
+      expect(
+        await _runner(StringBuffer(), error).run(['skills', 'install', skills]),
+        1,
+      );
+      expect(File(ratify).readAsStringSync(), 'mine\n');
+      expect(Directory(p.join(skills, 'decide')).existsSync(), isFalse);
+      expect(
+        error.toString(),
+        'error: $ratify exists and is not a decisions stub; '
+        'move it aside or install into another directory\n',
+      );
+    });
+
+    test('refuses a file at, or above, the install directory', () async {
+      for (final blocker in [skills, p.dirname(skills)]) {
+        final claude = Directory(p.dirname(skills));
+        if (claude.existsSync()) claude.deleteSync(recursive: true);
+        File(blocker)
+          ..parent.createSync(recursive: true)
+          ..writeAsStringSync('mine\n');
+        final error = StringBuffer();
+
+        expect(
+          await _runner(
+            StringBuffer(),
+            error,
+          ).run(['skills', 'install', skills]),
+          1,
+        );
+        expect(
+          error.toString(),
+          'error: $blocker exists and is not a decisions stub; '
+          'move it aside or install into another directory\n',
+          reason: 'one refusal for the shared blocker',
+        );
+        expect(File(blocker).readAsStringSync(), 'mine\n');
+      }
+    });
+
+    test('help carries the contract', () {
+      final usage = _runner(
+        StringBuffer(),
+      ).commands['skills']!.subcommands['install']!.usage;
+
+      expect(usage, contains('Usage: decisions skills install <dir>'));
+      expect(usage, contains(skillStubMarker));
+      expect(usage, contains('exits 1'));
     });
 
     test('needs exactly one directory', () async {
