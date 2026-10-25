@@ -7,8 +7,9 @@ import 'package:test/test.dart';
 /// The repository root, relative to the package root.
 const _repoRoot = '../../..';
 
-/// The user docs the tier-1 adopter reads: the README's verb inventory and
-/// the two style guides, the starter in `templates/` and this register's own.
+/// The user docs the tier-1 adopter reads: the README's verb inventory,
+/// `SPEC.md`'s deferral to it, and the two style guides, the starter in
+/// `templates/` and this register's own.
 void main() {
   group('the README names every tier-1 verb', () {
     late String readme;
@@ -49,6 +50,37 @@ void main() {
       final status = readme.substring(readme.indexOf('\n## Status\n'));
       for (final verb in verbs) {
         expect(status, contains('`$verb`'), reason: verb);
+      }
+    });
+  });
+
+  group('SPEC.md leaves the verb list to the README', () {
+    late String spec;
+    late List<String> verbs;
+
+    setUpAll(() {
+      spec = File(p.join(_repoRoot, 'SPEC.md')).readAsStringSync();
+      verbs = DecisionsCommandRunner(
+        output: StringBuffer(),
+      ).commands.keys.where((verb) => verb != 'help').toList();
+    });
+
+    test('its tier table names capabilities, not verbs', () {
+      final row = spec
+          .split('\n')
+          .singleWhere((line) => line.startsWith('| 1 — CLI |'));
+      expect(row, isNot(contains('`')));
+      expect(spec, contains('[README](README.md#tiers)'));
+      expect(spec, contains('`decisions --help`'));
+    });
+
+    test('and every verb it does name is one the binary has', () {
+      final named = RegExp(
+        '`decisions ([a-z][a-z-]*)',
+      ).allMatches(spec).map((match) => match[1]!).toSet();
+      expect(named, isNotEmpty);
+      for (final verb in named) {
+        expect(verbs, contains(verb), reason: verb);
       }
     });
   });
