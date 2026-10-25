@@ -44,12 +44,21 @@ void main() {
         beads['the-decisions-cli-ships-as-prebuilt-binaries'],
         'dec-n8y.2',
       );
+      expect(
+        beads['a-registers-style-md-is-its-style-guide-and-uppercase-files-'
+            'are-not-entries'],
+        'dec-vqt',
+      );
       beads.remove('docket-triggers');
       beads.remove('lexical-precedent-search');
       beads.remove('force-mutations-scope-cleanliness-to-touched-entries');
       beads.remove('successor-updated-by-dirt-does-not-block-force-mutation');
       beads.remove('cross-register-force-edges');
       beads.remove('the-decisions-cli-ships-as-prebuilt-binaries');
+      beads.remove(
+        'a-registers-style-md-is-its-style-guide-and-uppercase-files-'
+        'are-not-entries',
+      );
       expect(beads.values, everyElement(isNull));
       expect(entries.map((entry) => entry.legacyId), everyElement(isNull));
     });
