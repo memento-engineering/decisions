@@ -157,7 +157,10 @@ exit $exitCode
       final result = await runShim(path: '/usr/bin:/bin');
 
       expect(result.exitCode, 2);
-      expect(firstLine(result), 'decisions not found on PATH');
+      expect(
+        firstLine(result),
+        'decisions not found on PATH, or not executable',
+      );
       expect(result.stdout, contains('brew install'));
     });
 
@@ -188,7 +191,10 @@ exit $exitCode
       final result = await runShim(path: '$nx:/usr/bin:/bin');
 
       expect(result.exitCode, 2);
-      expect(firstLine(result), 'decisions on PATH is not executable');
+      expect(
+        firstLine(result),
+        'decisions not found on PATH, or not executable',
+      );
       expect(result.stdout, contains('brew install'));
     });
 

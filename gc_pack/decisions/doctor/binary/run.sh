@@ -9,8 +9,9 @@ out=$(decisions doctor --no-register --skills "$skills" 2>/dev/null)
 code=$?
 case $code in
   0|1|2) printf '%s\n' "$out"; exit "$code" ;;
-  126) printf 'decisions on PATH is not executable\n%s\n' "$hint"; exit 2 ;;
-  127) printf 'decisions not found on PATH\n%s\n' "$hint"; exit 2 ;;
+  # Shells disagree on a non-executable decisions: bash exits 126, dash
+  # skips it and exits 127. One message covers both.
+  126|127) printf 'decisions not found on PATH, or not executable\n%s\n' "$hint"; exit 2 ;;
 esac
 printf 'decisions at %s cannot run doctor (exit %s); it predates this pack\n%s\n' "$(command -v decisions)" "$code" "$hint"
 exit 2
