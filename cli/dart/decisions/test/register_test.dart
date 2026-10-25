@@ -68,6 +68,10 @@ void main() {
         beads['templates-style-md-is-the-starter-style-guide-for-a-register'],
         'dec-1ee',
       );
+      expect(
+        beads['the-register-ships-to-gas-city-as-a-pack-of-guide-stubs'],
+        'dec-iiq',
+      );
       beads.remove('docket-triggers');
       beads.remove('lexical-precedent-search');
       beads.remove('force-mutations-scope-cleanliness-to-touched-entries');
@@ -89,6 +93,7 @@ void main() {
       beads.remove(
         'templates-style-md-is-the-starter-style-guide-for-a-register',
       );
+      beads.remove('the-register-ships-to-gas-city-as-a-pack-of-guide-stubs');
       expect(beads.values, everyElement(isNull));
       expect(entries.map((entry) => entry.legacyId), everyElement(isNull));
     });

@@ -1,0 +1,4 @@
+[pack]
+name = "decisions"
+schema = 2
+description = "The decision register for Gas City rigs: decide and ratify skills that defer to the installed decisions CLI, and a doctor check for it."

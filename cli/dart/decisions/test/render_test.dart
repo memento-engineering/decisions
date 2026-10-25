@@ -32,7 +32,8 @@ void main() {
     // decision, then register documents, which add to the format without
     // amending an entry, then the binary's agent instructions, which govern
     // tooling, then the doctor verb, which governs tooling, then the starter
-    // style guide, which adds a template without amending an entry.
+    // style guide, which adds a template without amending an entry, then the
+    // Gas City pack, which governs a delivery channel and amends no entry.
     expect(views.map((view) => view.fileName), [
       '0001-the-decision-register.md',
       '0002-the-decisions-cli-ships-as-prebuilt-binaries.md',
@@ -42,6 +43,7 @@ void main() {
       '0005-decisions-doctor-answers-whether-this-binary-can-work-this-'
           'register.md',
       '0006-templates-style-md-is-the-starter-style-guide-for-a-register.md',
+      '0007-the-register-ships-to-gas-city-as-a-pack-of-guide-stubs.md',
     ]);
     final combined = views.map((view) => view.content).join('\n');
     final graph = DecisionGraph(readRegister(_selfHostedRegister));
@@ -49,7 +51,7 @@ void main() {
         .where((entry) => graph.isBinding(entry.slug))
         .toList();
 
-    expect(binding, hasLength(16));
+    expect(binding, hasLength(17));
     for (final entry in binding) {
       expect(combined, contains('<a id="${entry.slug}"></a>'));
     }
@@ -104,7 +106,7 @@ void main() {
     );
     final views = renderViews(graph: graph, template: template);
 
-    expect(views, hasLength(6));
+    expect(views, hasLength(7));
     for (final view in views) {
       expect(view.content, startsWith('<!-- layout sentinel -->'));
     }
