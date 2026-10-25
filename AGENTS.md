@@ -85,6 +85,24 @@ committed at `HEAD`, so commit pack edits before running it. Everything runs in 
 your own gc, supervisor or cities. `E2E_ONLY="s2_rig_level s9_cache_wipe"` runs a subset,
 `E2E_VERBOSE=1` prints every scenario's log, and `E2E_KEEP=1` keeps the sandbox.
 If a scenario fails because gc changed, fix the README claim it names in the same change.
+The gc, bd and dolt versions CI runs, with their sha256s, live only in
+`.github/actions/gc-sandbox-tools/action.yml`, which both workflows use.
+
+Each release prints the Gas City pin in its notes: `release.yaml` peels the tag to its commit and
+writes the `version = "sha:<commit>"` line with the pack's tree-URL source. Its
+`gc_pack_published` job then runs `gc_pack/e2e.sh --published <tag> <sha>` with the release's own
+linux-x64 binary: the rig-level scenario against the real GitHub source at that pin, the only
+test of the line adopters copy. It needs the network, runs after the release and blocks nothing.
+A red run means the published install line is wrong: fix it forward (the pack README or a new
+release), never by moving or deleting the tag. To rerun it by hand, from the repo root:
+
+```bash
+GC_BIN=... BD_BIN=... DOLT_BIN=... DECISIONS_BIN=/path/to/released/decisions \
+  gc_pack/e2e.sh --published decisions-vX.Y.Z "$(git rev-parse 'decisions-vX.Y.Z^{commit}')"
+```
+
+The label only names the run, so any commit on GitHub that carries `gc_pack/decisions` can be
+checked the same way, released or not.
 
 Lint this repo's own register — it is self-hosted, so this is a real check, not a demo:
 

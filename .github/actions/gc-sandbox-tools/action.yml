@@ -1,0 +1,78 @@
+name: gc sandbox tools
+description: >-
+  Installs gc's hard dependencies and the pinned, checksummed gc, bd and dolt
+  that gc_pack/e2e.sh runs against, into $RUNNER_TEMP/bin on PATH. This is the
+  one place those pins live: ci.yaml's gc_pack job and release.yaml's
+  gc_pack_published job both use it, so bumping a binary is one version/sha
+  pair here. Linux x64 runners only.
+
+inputs:
+  apt-extra:
+    description: Extra apt packages to install alongside gc's dependencies.
+    required: false
+    default: ''
+
+outputs:
+  bin-dir:
+    description: The directory holding gc, bd and dolt (already on PATH).
+    value: ${{ steps.download.outputs.bin-dir }}
+
+runs:
+  using: composite
+  steps:
+    - name: Install gc's hard dependencies
+      shell: bash
+      env:
+        APT_EXTRA: ${{ inputs.apt-extra }}
+      run: |
+        set -euo pipefail
+        # The release binaries below are linux_amd64.
+        if [ "$RUNNER_OS" != Linux ] || [ "$RUNNER_ARCH" != X64 ]; then
+          echo "gc-sandbox-tools needs a Linux X64 runner, not $RUNNER_OS $RUNNER_ARCH" >&2
+          exit 1
+        fi
+        sudo apt-get update
+        # APT_EXTRA is a space-separated package list, split on purpose.
+        # shellcheck disable=SC2086
+        sudo apt-get install -y git tmux lsof jq util-linux procps $APT_EXTRA
+
+    - id: download
+      name: Download gc, bd and dolt
+      shell: bash
+      env:
+        GC_VERSION: 1.5.1
+        GC_SHA256: 3a405a5455eb6216f7f65d4516a614e4913d83bc8964df8800e0533ab2d40044
+        # gc init refuses bd below 1.3.0.
+        BD_VERSION: 1.3.2
+        BD_SHA256: c6ea3281f6ff82628351b2d0967c9eb85862c8a0ec0ebc24e63e645c8b02462e
+        DOLT_VERSION: 2.4.2
+        DOLT_SHA256: 5d95a271149dc6ea97f47157af7ba9a0df5e8d4e9bbac4d79c169f2faa3cfb9e
+      run: |
+        set -euo pipefail
+        mkdir -p "$RUNNER_TEMP/bin" "$RUNNER_TEMP/dl"
+        cd "$RUNNER_TEMP/dl"
+
+        gc_tar="gascity_${GC_VERSION}_linux_amd64.tar.gz"
+        gc_url="https://github.com/gastownhall/gascity/releases/download/v${GC_VERSION}"
+        curl -fsSLO "$gc_url/$gc_tar"
+        curl -fsSLO "$gc_url/gascity_${GC_VERSION}_checksums.txt"
+        echo "${GC_SHA256}  $gc_tar" | sha256sum -c -
+        grep " $gc_tar\$" "gascity_${GC_VERSION}_checksums.txt" | sha256sum -c -
+        tar -xzf "$gc_tar" gc
+
+        bd_tar="beads_${BD_VERSION}_linux_amd64.tar.gz"
+        bd_url="https://github.com/gastownhall/beads/releases/download/v${BD_VERSION}"
+        curl -fsSLO "$bd_url/$bd_tar"
+        curl -fsSLO "$bd_url/checksums.txt"
+        echo "${BD_SHA256}  $bd_tar" | sha256sum -c -
+        grep " $bd_tar\$" checksums.txt | sha256sum -c -
+        tar -xzf "$bd_tar" bd
+
+        dolt_tar=dolt-linux-amd64.tar.gz
+        curl -fsSLO "https://github.com/dolthub/dolt/releases/download/v${DOLT_VERSION}/$dolt_tar"
+        echo "${DOLT_SHA256}  $dolt_tar" | sha256sum -c -
+        tar -xzf "$dolt_tar" dolt-linux-amd64/bin/dolt
+
+        install -m 0755 gc bd dolt-linux-amd64/bin/dolt "$RUNNER_TEMP/bin/"
+        echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+        echo "bin-dir=$RUNNER_TEMP/bin" >> "$GITHUB_OUTPUT"

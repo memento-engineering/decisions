@@ -12,6 +12,12 @@ on:
 permissions:
   contents: read
 
+env:
+  # The Gas City pack source the release notes print, and the one
+  # gc_pack_published imports, so the published install line and its smoke
+  # test read the same value. gc_pack/decisions/README.md prints it too.
+  GC_PACK_SOURCE: https://github.com/memento-engineering/decisions/tree/main/gc_pack/decisions
+
 jobs:
   build:
     # One native runner per target, so every binary is executed before it is
@@ -66,7 +72,10 @@ jobs:
       contents: write
     outputs:
       prerelease: ${{ steps.publish.outputs.prerelease }}
+      sha: ${{ steps.pin.outputs.sha }}
     steps:
+      # For the tag ref: the Gas City pin is the commit it names.
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           path: dist
@@ -76,10 +85,19 @@ jobs:
         run: |
           sha256sum decisions-* > SHA256SUMS
           cat SHA256SUMS
+      - id: pin
+        name: The Gas City pin
+        run: |
+          # Peeled, so an annotated tag and a lightweight one give the same
+          # answer: a sha: pin must name a commit, not a tag object.
+          sha=$(git rev-parse "$GITHUB_REF^{commit}")
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "$GITHUB_REF_NAME is commit $sha"
       - id: publish
         name: Publish the GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
+          SHA: ${{ steps.pin.outputs.sha }}
         run: |
           # A version with a prerelease suffix (0.3.0-rc.1) is a prerelease.
           # Stable promotion is a human act
@@ -90,11 +108,22 @@ jobs:
             *-*) prerelease=true; flag=--prerelease ;;
           esac
           echo "prerelease=$prerelease" >> "$GITHUB_OUTPUT"
+          # A notes file, not --notes: the text holds backticks and quotes.
+          notes="$RUNNER_TEMP/release-notes.md"
+          readme="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/blob/$GITHUB_REF_NAME/gc_pack/decisions/README.md"
+          {
+            printf '%s\n\n' 'Standalone decisions CLI. Verify downloads against SHA256SUMS.'
+            # The backticks are Markdown, not command substitution.
+            # shellcheck disable=SC2016
+            printf 'Gas City: in `[rigs.imports.decisions]` set `version = "sha:%s"` (source `%s`); see [gc_pack/decisions/README.md](%s).\n' \
+              "$SHA" "$GC_PACK_SOURCE" "$readme"
+          } > "$notes"
+          cat "$notes"
           gh release create "$GITHUB_REF_NAME" dist/* \
             --repo "$GITHUB_REPOSITORY" \
             --verify-tag \
             --title "$GITHUB_REF_NAME" \
-            --notes "Standalone decisions CLI. Verify downloads against SHA256SUMS." \
+            --notes-file "$notes" \
             $flag
 
   tap:
@@ -134,3 +163,46 @@ jobs:
           fi
           git commit -m "decisions ${GITHUB_REF_NAME#decisions-v}"
           git push
+
+  gc_pack_published:
+    # The Gas City install line the release notes print, run as an adopter
+    # would run it: the real GitHub tree URL pinned at sha:<this tag's commit>,
+    # served by the release's own linux-x64 binary. It is the only test of the
+    # tree-URL source with a sha: pin, and it needs the network. Prereleases
+    # run it too: the pin works for them, and the doctor hint's pinned-download
+    # route covers the formula they lack.
+    #
+    # Nothing depends on this job and it undoes nothing: the release is out,
+    # and the tap job runs beside it. A red run means the published install
+    # line is wrong, and it is fixed forward (the pack README, or a new
+    # release); the tag and the release stay. Rerun it by hand with
+    # gc_pack/e2e.sh --published <tag> <sha>; see AGENTS.md.
+    needs: release
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/gc-sandbox-tools
+      # What adopters download, checked as they are told to check it; not a
+      # fresh compile.
+      - name: Download the release's linux-x64 binary
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          asset="decisions-${GITHUB_REF_NAME#decisions-v}-linux-x64"
+          dir="$RUNNER_TEMP/release"
+          gh release download "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" \
+            --pattern "$asset" --pattern SHA256SUMS --dir "$dir"
+          (cd "$dir" && grep " $asset\$" SHA256SUMS | sha256sum -c -)
+          install -m 0755 "$dir/$asset" "$RUNNER_TEMP/bin/decisions"
+          "$RUNNER_TEMP/bin/decisions" --version
+      # The script sandboxes HOME, GC_HOME and XDG itself; nothing calls gc
+      # outside that sandbox.
+      - name: gc_pack/e2e.sh --published
+        env:
+          SHA: ${{ needs.release.outputs.sha }}
+        run: |
+          GC_BIN="$RUNNER_TEMP/bin/gc" BD_BIN="$RUNNER_TEMP/bin/bd" \
+            DOLT_BIN="$RUNNER_TEMP/bin/dolt" DECISIONS_BIN="$RUNNER_TEMP/bin/decisions" \
+            E2E_PUBLISHED_SOURCE="$GC_PACK_SOURCE" \
+            gc_pack/e2e.sh --published "$GITHUB_REF_NAME" "$SHA"

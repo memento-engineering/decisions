@@ -8,6 +8,7 @@
 # that claim. The script exits 1 if any scenario fails.
 #
 # Usage: gc_pack/e2e.sh
+#        gc_pack/e2e.sh --published <tag-or-label> <sha>
 #   E2E_ONLY="s2_rig_level s9_cache_wipe"  run only these scenarios
 #   E2E_VERBOSE=1                           print every scenario's log
 #   E2E_KEEP=1                              keep the sandbox for inspection
@@ -24,6 +25,14 @@
 # The pack under test is the one committed at HEAD, imported through the same
 # git + subpath + sha: resolver adopters use. Uncommitted pack edits are not
 # seen; commit them first.
+#
+# --published runs one scenario, the rig-level import, against the source the
+# release notes print (the GitHub tree URL; E2E_PUBLISHED_SOURCE overrides it)
+# pinned at sha:<sha>, so it tests the install line adopters copy rather than
+# this checkout. It needs the network. The release workflow runs it after each
+# release with that release's own binary as DECISIONS_BIN; a red run there is
+# fixed forward. The label only names the run, so any commit that already
+# carries gc_pack/decisions on GitHub can be checked, released or not.
 #
 # Isolation: HOME, GC_HOME, the XDG directories and TMUX_TMPDIR all live under
 # one temp root, inherited GC_*, BEADS_* and TMUX variables are dropped, and
@@ -42,10 +51,33 @@ die() {
   exit 2
 }
 
+USAGE='usage: gc_pack/e2e.sh [--published <tag-or-label> <sha>]'
+MODE=local
+case ${1:-} in
+  '') ;;
+  --published)
+    [ $# -eq 3 ] || die "$USAGE"
+    MODE=published
+    LABEL=$2
+    SHA=$3
+    [[ $SHA =~ ^[0-9a-f]{40}$ ]] || die "--published wants a full 40-hex commit sha, got '$SHA'"
+    [ -n "$LABEL" ] || die "$USAGE"
+    ;;
+  -h | --help)
+    printf '%s\n' "$USAGE"
+    exit 0
+    ;;
+  *) die "unexpected argument '$1' ($USAGE)" ;;
+esac
+
 # Every scenario below, in run order. E2E_ONLY is checked against this list,
 # so a misspelled or stale name stops the run instead of running nothing.
-SCENARIOS=(s1_lint s2_rig_level s3_materialized s4_city_level s5_defaults s6_upgrade
-  s7_one_pin s8_include s8_include_pinned s9_cache_wipe s10_two_levels)
+if [ "$MODE" = published ]; then
+  SCENARIOS=(p1_published_rig_level)
+else
+  SCENARIOS=(s1_lint s2_rig_level s3_materialized s4_city_level s5_defaults s6_upgrade
+    s7_one_pin s8_include s8_include_pinned s9_cache_wipe s10_two_levels)
+fi
 for only in ${E2E_ONLY:-}; do
   case " ${SCENARIOS[*]} " in
     *" $only "*) ;;
@@ -73,10 +105,14 @@ if [ -n "${DECISIONS_BIN:-}" ]; then
   DECISIONS_REAL=$(resolve_bin decisions DECISIONS_BIN "$DECISIONS_BIN") || exit 2
 fi
 
-SHA=$(git -C "$REPO" rev-parse HEAD) || die "cannot read HEAD of $REPO"
-SRC="file://$REPO//gc_pack/decisions"
-if [ -n "$(git -C "$REPO" status --porcelain -- gc_pack/decisions)" ]; then
-  printf 'e2e: note: gc_pack/decisions has uncommitted changes; testing HEAD %s\n' "$SHA" >&2
+if [ "$MODE" = published ]; then
+  SRC=${E2E_PUBLISHED_SOURCE:-https://github.com/memento-engineering/decisions/tree/main/gc_pack/decisions}
+else
+  SHA=$(git -C "$REPO" rev-parse HEAD) || die "cannot read HEAD of $REPO"
+  SRC="file://$REPO//gc_pack/decisions"
+  if [ -n "$(git -C "$REPO" status --porcelain -- gc_pack/decisions)" ]; then
+    printf 'e2e: note: gc_pack/decisions has uncommitted changes; testing HEAD %s\n' "$SHA" >&2
+  fi
 fi
 
 # ---- sandbox ---------------------------------------------------------------
@@ -186,27 +222,35 @@ dolt config --global --add user.email gc-e2e@example.invalid >/dev/null
 
 # A second pack source with two commits, A and B, differing only in the
 # description: the fixture for the upgrade and one-pin scenarios.
-UP_REPO=$ROOT/upgrade-src
-mkdir -p "$UP_REPO/gc_pack"
-git -C "$REPO" archive HEAD gc_pack/decisions | tar -x -C "$UP_REPO"
-git -C "$UP_REPO" init -q
-git -C "$UP_REPO" add -A
-git -C "$UP_REPO" commit -qm A
-UP_A=$(git -C "$UP_REPO" rev-parse HEAD)
-sed 's/^description = ".*"$/description = "upgrade fixture, commit B"/' \
-  "$UP_REPO/gc_pack/decisions/pack.toml" >"$UP_REPO/pack.toml.new"
-mv -f "$UP_REPO/pack.toml.new" "$UP_REPO/gc_pack/decisions/pack.toml"
-git -C "$UP_REPO" commit -qam B
-UP_B=$(git -C "$UP_REPO" rev-parse HEAD)
-UP_SRC="file://$UP_REPO//gc_pack/decisions"
+UP_SRC='' UP_A='' UP_B=''
+if [ "$MODE" = local ]; then
+  UP_REPO=$ROOT/upgrade-src
+  mkdir -p "$UP_REPO/gc_pack"
+  git -C "$REPO" archive HEAD gc_pack/decisions | tar -x -C "$UP_REPO"
+  git -C "$UP_REPO" init -q
+  git -C "$UP_REPO" add -A
+  git -C "$UP_REPO" commit -qm A
+  UP_A=$(git -C "$UP_REPO" rev-parse HEAD)
+  sed 's/^description = ".*"$/description = "upgrade fixture, commit B"/' \
+    "$UP_REPO/gc_pack/decisions/pack.toml" >"$UP_REPO/pack.toml.new"
+  mv -f "$UP_REPO/pack.toml.new" "$UP_REPO/gc_pack/decisions/pack.toml"
+  git -C "$UP_REPO" commit -qam B
+  UP_B=$(git -C "$UP_REPO" rev-parse HEAD)
+  UP_SRC="file://$UP_REPO//gc_pack/decisions"
+fi
 
 export REPO PACK SHA SRC ROOT NODEC_PATH FAKE64_PATH UP_SRC UP_A UP_B
 set +e
 
 printf 'e2e: gc %s; %s; %s\n' "$(gc version 2>/dev/null | head -n1)" \
   "$(bd version 2>/dev/null | head -n1)" "$(dolt version 2>/dev/null | head -n1)"
+printf 'e2e: %s\n' "$(decisions --version 2>/dev/null | head -n1)"
 printf 'e2e: sandbox %s\n' "$ROOT"
-printf 'e2e: pack %s at %s\n' "$SRC" "$SHA"
+if [ "$MODE" = published ]; then
+  printf 'e2e: published %s: pack %s at sha:%s\n' "$LABEL" "$SRC" "$SHA"
+else
+  printf 'e2e: pack %s at %s\n' "$SRC" "$SHA"
+fi
 
 # ---- helpers (each scenario runs in a subshell; fail exits it) --------------
 
@@ -288,8 +332,11 @@ s1_lint() {
   ok gc lint "$PACK"
 }
 
-s2_rig_level() {
-  local dir=$ROOT/s2 status
+# rig_import <dir>: in a new city under dir, a rig "app" imports $SRC at
+# sha:$SHA, only that rig's agents list the skills and decisions:binary
+# reports ok. Leaves the shell in the city.
+rig_import() {
+  local dir=$1 status
   new_city "$dir/city"
   new_rig "$dir/app"
   cd "$dir/city" || fail "cd"
@@ -302,6 +349,11 @@ s2_rig_level() {
   ok gc doctor --check decisions:binary --json
   status=$(doctor_status)
   [ "$status" = ok ] || fail "decisions:binary status '$status', want ok"
+}
+
+s2_rig_level() {
+  local dir=$ROOT/s2 status
+  rig_import "$dir"
 
   run env PATH="$NODEC_PATH" gc doctor --check decisions:binary --json
   status=$(doctor_status)
@@ -501,6 +553,11 @@ s10_two_levels() {
   done
 }
 
+p1_published_rig_level() {
+  rig_import "$ROOT/p1"
+  grep -q "$SHA" packs.lock || fail "packs.lock does not record the pinned commit $SHA"
+}
+
 # ---- run -------------------------------------------------------------------
 
 passed=0 skipped=0 failures=0
@@ -529,17 +586,21 @@ scenario() { # scenario <fn> <README claim>
   [ -z "${E2E_VERBOSE:-}" ] || sed 's/^/    /' "$log"
 }
 
-scenario s1_lint "the pack passes gc lint"
-scenario s2_rig_level "a rig import reaches only that rig's agents; decisions:binary reports ok, not-on-PATH and too-old"
-scenario s3_materialized "gc links the committed stubs as decisions.decide and decisions.ratify"
-scenario s4_city_level "a city import is [imports.decisions] in pack.toml and reaches the mayor and every rig's agents"
-scenario s5_defaults "[defaults.rig.imports] reaches rigs added afterwards, not rigs that already exist; until gc import install the whole city fails with 'missing packs.lock entry'"
-scenario s6_upgrade "upgrade by moving the version and running gc import install; import add again fails with 'already exists'"
-scenario s7_one_pin "one pin per city: a second pin of the same source fails with 'incompatible pinned versions'"
-scenario s8_include "gc rig add --include of this pack fails with 'no semver tags found'"
-scenario s8_include_pinned "with another import pinning the source, an --include import follows that pin; once it is gone, upgrade or an unlocked install fails with 'no semver tags found'"
-scenario s9_cache_wipe "after a cache wipe the city fails to load with 'locked but not cached' and decisions:binary is not registered; gc import install refills it"
-scenario s10_two_levels "a city import plus a rig import lists each skill twice in that rig's agents"
+if [ "$MODE" = published ]; then
+  scenario p1_published_rig_level "$LABEL: a rig import of $SRC at sha:$SHA installs, reaches only that rig's agents, and decisions:binary reports ok"
+else
+  scenario s1_lint "the pack passes gc lint"
+  scenario s2_rig_level "a rig import reaches only that rig's agents; decisions:binary reports ok, not-on-PATH and too-old"
+  scenario s3_materialized "gc links the committed stubs as decisions.decide and decisions.ratify"
+  scenario s4_city_level "a city import is [imports.decisions] in pack.toml and reaches the mayor and every rig's agents"
+  scenario s5_defaults "[defaults.rig.imports] reaches rigs added afterwards, not rigs that already exist; until gc import install the whole city fails with 'missing packs.lock entry'"
+  scenario s6_upgrade "upgrade by moving the version and running gc import install; import add again fails with 'already exists'"
+  scenario s7_one_pin "one pin per city: a second pin of the same source fails with 'incompatible pinned versions'"
+  scenario s8_include "gc rig add --include of this pack fails with 'no semver tags found'"
+  scenario s8_include_pinned "with another import pinning the source, an --include import follows that pin; once it is gone, upgrade or an unlocked install fails with 'no semver tags found'"
+  scenario s9_cache_wipe "after a cache wipe the city fails to load with 'locked but not cached' and decisions:binary is not registered; gc import install refills it"
+  scenario s10_two_levels "a city import plus a rig import lists each skill twice in that rig's agents"
+fi
 
 summary="$passed passed, $skipped skipped, $failures failed"
 if [ "$failures" -ne 0 ]; then
