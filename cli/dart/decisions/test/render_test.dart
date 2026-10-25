@@ -30,12 +30,14 @@ void main() {
     // The format's lineage, which the write verb amends as a tier-1 verb,
     // then the CLI's distribution, which governs tooling and amends no format
     // decision, then register documents, which add to the format without
-    // amending an entry.
+    // amending an entry, then the binary's agent instructions, which govern
+    // tooling.
     expect(views.map((view) => view.fileName), [
       '0001-the-decision-register.md',
       '0002-the-decisions-cli-ships-as-prebuilt-binaries.md',
       '0003-a-registers-style-md-is-its-style-guide-and-uppercase-files-are-'
           'not-entries.md',
+      '0004-the-decisions-binary-carries-its-own-agent-instructions.md',
     ]);
     final combined = views.map((view) => view.content).join('\n');
     final graph = DecisionGraph(readRegister(_selfHostedRegister));
@@ -43,7 +45,7 @@ void main() {
         .where((entry) => graph.isBinding(entry.slug))
         .toList();
 
-    expect(binding, hasLength(12));
+    expect(binding, hasLength(13));
     for (final entry in binding) {
       expect(combined, contains('<a id="${entry.slug}"></a>'));
     }
@@ -98,7 +100,7 @@ void main() {
     );
     final views = renderViews(graph: graph, template: template);
 
-    expect(views, hasLength(3));
+    expect(views, hasLength(4));
     for (final view in views) {
       expect(view.content, startsWith('<!-- layout sentinel -->'));
     }

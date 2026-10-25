@@ -34,7 +34,7 @@ preference.
 | `cli/dart/decisions/` | the deterministic engine; no grid dependency |
 | `grid_assets/decisions_grid_assets/` | the tier-2 grid adapter |
 
-Three surfaces are **copies or generated output**. Editing the copy is always wrong — the tests
+Four surfaces are **copies or generated output**. Editing the copy is always wrong — the tests
 that pin them will fail, and `assets install` reverts them:
 
 - `grid_assets/.../extension/station_overlay/claude/skills/**` mirrors `skills/**` byte for byte
@@ -43,6 +43,9 @@ that pin them will fail, and `assets install` reverts them:
 - `grid_assets/.../lib/src/assets/grid_asset_pack.dart` is generated from the `grid:` block of
   `grid_assets/decisions_grid_assets/pubspec.yaml`. Regenerate with
   `dart run tool/generate_grid_assets.dart`; CI checks it with `--check`.
+- `cli/dart/decisions/lib/src/guides.g.dart` is generated from `skills/*/SKILL.md` and is what
+  `decisions guide` prints. Regenerate with `dart run tool/generate_guides.dart` from
+  `cli/dart/decisions`; `guides_test.dart` fails while it is stale.
 
 ## Build & test
 
