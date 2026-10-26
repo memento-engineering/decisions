@@ -283,14 +283,16 @@ void main() {
     for (final flag in ['--title', '--body', '--surface', '--decision-maker']) {
       expect(text, contains(flag));
     }
-    // The contract: exit codes, refusal semantics, and the next steps.
+    // The contract: exit codes, streams, refusal semantics, next steps.
+    final prose = text.replaceAll('\n', ' ');
     for (final clause in [
-      'Exits 0 when written',
-      'Exits 1 when refused, having written nothing',
+      'Exits 0 when written, printing on stdout',
+      'Exits 1 when refused, having written nothing, with the reason on '
+          'stderr',
       'usage error',
       '"next:" line',
     ]) {
-      expect(text, contains(clause));
+      expect(prose, contains(clause));
     }
     expect(text.split('\n').length, lessThan(40));
   });
