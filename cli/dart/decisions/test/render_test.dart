@@ -31,8 +31,9 @@ void main() {
     // then the CLI's distribution, which governs tooling and amends no format
     // decision, then register documents, which add to the format without
     // amending an entry, then the binary's agent instructions, which govern
-    // tooling, then the doctor verb, which governs tooling, then the stream
-    // contract every verb shares, which governs tooling and amends no entry,
+    // tooling, then the doctor verb, which governs tooling, then the
+    // retirement of migrate-legacy, which governs tooling and amends no
+    // entry, then the stream contract every verb shares, which governs tooling and amends no entry,
     // then the tier table, which defers the verb list without amending an
     // entry, then the starter style guide, which adds a template without
     // amending an entry, then the Gas City pack, which governs a delivery
@@ -46,12 +47,14 @@ void main() {
       '0004-the-decisions-binary-carries-its-own-agent-instructions.md',
       '0005-decisions-doctor-answers-whether-this-binary-can-work-this-'
           'register.md',
-      '0006-every-verb-prints-refusals-and-errors-on-stderr-and-results-on-'
+      '0006-decisions-migrate-legacy-is-retired-with-the-legacy-registers-it-'
+          'converted.md',
+      '0007-every-verb-prints-refusals-and-errors-on-stderr-and-results-on-'
           'stdout.md',
-      '0007-spec-tier-table-describes-capabilities-and-defers-the-verb-list-'
+      '0008-spec-tier-table-describes-capabilities-and-defers-the-verb-list-'
           'to-the-cli.md',
-      '0008-templates-style-md-is-the-starter-style-guide-for-a-register.md',
-      '0009-the-gas-city-pack-ships-no-orders-and-register-health-belongs-in-'
+      '0009-templates-style-md-is-the-starter-style-guide-for-a-register.md',
+      '0010-the-gas-city-pack-ships-no-orders-and-register-health-belongs-in-'
           'each-rigs-ci.md',
     ]);
     final combined = views.map((view) => view.content).join('\n');
@@ -60,7 +63,7 @@ void main() {
         .where((entry) => graph.isBinding(entry.slug))
         .toList();
 
-    expect(binding, hasLength(21));
+    expect(binding, hasLength(22));
     for (final entry in binding) {
       expect(combined, contains('<a id="${entry.slug}"></a>'));
     }
@@ -115,7 +118,7 @@ void main() {
     );
     final views = renderViews(graph: graph, template: template);
 
-    expect(views, hasLength(9));
+    expect(views, hasLength(10));
     for (final view in views) {
       expect(view.content, startsWith('<!-- layout sentinel -->'));
     }

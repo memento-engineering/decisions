@@ -512,7 +512,7 @@ void main() {
       expect(
         output.toString(),
         contains(
-          '\n  doctor          check this binary can work this register',
+          RegExp(r'\n  doctor +check this binary can work this register'),
         ),
       );
     });

@@ -125,6 +125,10 @@ void main() {
       beads.remove(
         'every-verb-prints-refusals-and-errors-on-stderr-and-results-on-stdout',
       );
+      beads.remove(
+        'decisions-migrate-legacy-is-retired-with-the-legacy-registers-it-'
+        'converted',
+      );
       expect(beads.values, everyElement(isNull));
       expect(entries.map((entry) => entry.legacyId), everyElement(isNull));
     });

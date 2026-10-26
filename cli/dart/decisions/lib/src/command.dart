@@ -7,7 +7,6 @@ import 'package:args/command_runner.dart';
 import 'doctor_command.dart';
 import 'index_command.dart';
 import 'instructions_command.dart';
-import 'legacy.dart';
 import 'lint.dart';
 import 'mutation.dart';
 import 'new_command.dart';
@@ -20,7 +19,6 @@ final class DecisionsCommand extends Command<int> {
   /// Creates the group with injectable services, register resolver, and sinks.
   DecisionsCommand({
     DecisionLinter? linter,
-    LegacyRegisterConverter? legacyConverter,
     DecisionMutator? mutator,
     RegisterPathResolver? registerPaths,
     StringSink? output,
@@ -28,7 +26,6 @@ final class DecisionsCommand extends Command<int> {
   }) {
     _verbs(
       linter: linter,
-      legacyConverter: legacyConverter,
       mutator: mutator,
       registerPaths: registerPaths,
       output: output,
@@ -52,7 +49,6 @@ final class DecisionsCommandRunner extends CommandRunner<int> {
   /// Creates the runner with injectable services, register resolver, and sinks.
   DecisionsCommandRunner({
     DecisionLinter? linter,
-    LegacyRegisterConverter? legacyConverter,
     DecisionMutator? mutator,
     RegisterPathResolver? registerPaths,
     StringSink? output,
@@ -67,7 +63,6 @@ final class DecisionsCommandRunner extends CommandRunner<int> {
     );
     _verbs(
       linter: linter,
-      legacyConverter: legacyConverter,
       mutator: mutator,
       registerPaths: registerPaths,
       output: _output,
@@ -117,7 +112,6 @@ final class DecisionsCommandRunner extends CommandRunner<int> {
 /// Every verb, built once per host so both hosts share one wiring.
 List<Command<int>> _verbs({
   required DecisionLinter? linter,
-  required LegacyRegisterConverter? legacyConverter,
   required DecisionMutator? mutator,
   required RegisterPathResolver? registerPaths,
   required StringSink? output,
@@ -140,10 +134,6 @@ List<Command<int>> _verbs({
       output: resolvedOutput,
     ),
     DoctorCommand(output: resolvedOutput),
-    _MigrateLegacyCommand(
-      converter: legacyConverter ?? const LegacyRegisterConversionService(),
-      output: resolvedOutput,
-    ),
     DecisionNewCommand(
       linter: linter,
       registerPaths: resolvedRegisterPaths,
@@ -225,76 +215,6 @@ final class _LintCommand extends Command<int> {
       }
     }
     return result.isClean ? 0 : 1;
-  }
-}
-
-final class _MigrateLegacyCommand extends Command<int> {
-  _MigrateLegacyCommand({
-    required LegacyRegisterConverter converter,
-    required StringSink output,
-  }) : _converter = converter,
-       _output = output {
-    argParser
-      ..addMultiOption(
-        'surface',
-        abbr: 's',
-        valueHelp: 'glob',
-        help: 'Authored surface copied unchanged to every converted entry.',
-      )
-      ..addOption(
-        'human',
-        mandatory: true,
-        valueHelp: 'name',
-        help: 'Sole decision-maker for explicitly ratified ADRs.',
-      )
-      ..addMultiOption(
-        'ratified',
-        valueHelp: 'YYYY-MM-DD=path',
-        help: 'Ratified ADR converted whole; repeat for each selected file.',
-      );
-  }
-
-  final LegacyRegisterConverter _converter;
-  final StringSink _output;
-
-  @override
-  String get name => 'migrate-legacy';
-
-  @override
-  String get description =>
-      'Convert one ADR-0000 register and explicit ratified ADRs.';
-
-  @override
-  int run() {
-    final positional = argResults!.rest;
-    if (positional.length != 2) {
-      usageException('Expected REGISTER_FILE and OUTPUT_DIRECTORY.');
-    }
-    final surfaces = argResults!.multiOption('surface');
-    if (surfaces.isEmpty) {
-      usageException('At least one --surface is required.');
-    }
-    final ratified = argResults!
-        .multiOption('ratified')
-        .map(_parseRatified)
-        .toList(growable: false);
-    final result = _converter.convert(
-      registerFile: positional[0],
-      ratifiedAdrs: ratified,
-      surfaces: surfaces,
-      human: argResults!.option('human')!,
-      outputDirectory: positional[1],
-    );
-    _output.writeln('converted ${result.files.length} decision entries');
-    return 0;
-  }
-
-  LegacyRatifiedAdr _parseRatified(String value) {
-    final match = RegExp(r'^(\d{4}-\d{2}-\d{2})=(.+)$').firstMatch(value);
-    if (match == null) {
-      usageException('--ratified must use the exact YYYY-MM-DD=path form');
-    }
-    return LegacyRatifiedAdr(file: match.group(2)!, date: match.group(1)!);
   }
 }
 
