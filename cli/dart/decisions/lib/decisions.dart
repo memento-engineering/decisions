@@ -14,7 +14,6 @@ export 'src/guide.dart';
 export 'src/index.dart';
 export 'src/index_command.dart';
 export 'src/instructions_command.dart';
-export 'src/legacy.dart';
 export 'src/lint.dart';
 export 'src/mutation.dart';
 export 'src/new_command.dart';

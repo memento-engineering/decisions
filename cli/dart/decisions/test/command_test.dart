@@ -24,30 +24,6 @@ final class FakeDecisionLinter implements DecisionLinter {
   }
 }
 
-final class FakeLegacyRegisterConverter implements LegacyRegisterConverter {
-  String? registerFile;
-  List<LegacyRatifiedAdr>? ratifiedAdrs;
-  List<String>? surfaces;
-  String? human;
-  String? outputDirectory;
-
-  @override
-  LegacyConversionResult convert({
-    required String registerFile,
-    required Iterable<LegacyRatifiedAdr> ratifiedAdrs,
-    required Iterable<String> surfaces,
-    required String human,
-    required String outputDirectory,
-  }) {
-    this.registerFile = registerFile;
-    this.ratifiedAdrs = ratifiedAdrs.toList(growable: false);
-    this.surfaces = surfaces.toList(growable: false);
-    this.human = human;
-    this.outputDirectory = outputDirectory;
-    return LegacyConversionResult(['docs/decisions/converted.md']);
-  }
-}
-
 final class FakeDecisionMutator implements DecisionMutator {
   final calls = <String>[];
 
@@ -227,43 +203,6 @@ void main() {
       await invalidRunner.run(<String>['decisions', 'lint', 'register-path']),
       1,
     );
-  });
-
-  test('migrate-legacy command delegates explicit inputs', () async {
-    final converter = FakeLegacyRegisterConverter();
-    final output = StringBuffer();
-    final runner = CommandRunner<int>(
-      'station',
-      'fixture',
-    )..addCommand(DecisionsCommand(legacyConverter: converter, output: output));
-
-    final code = await runner.run(<String>[
-      'decisions',
-      'migrate-legacy',
-      'docs/adr/ADR-0000-ai-decision-register.md',
-      'docs/decisions',
-      '--surface',
-      'lib/**',
-      '--surface',
-      'docs/**',
-      '--human',
-      'Nico Spencer',
-      '--ratified',
-      '2026-06-11=docs/adr/ADR-0001-foundations.md',
-    ]);
-
-    expect(code, 0);
-    expect(converter.registerFile, 'docs/adr/ADR-0000-ai-decision-register.md');
-    expect(converter.outputDirectory, 'docs/decisions');
-    expect(converter.surfaces, ['lib/**', 'docs/**']);
-    expect(converter.human, 'Nico Spencer');
-    expect(converter.ratifiedAdrs, hasLength(1));
-    expect(converter.ratifiedAdrs!.single.date, '2026-06-11');
-    expect(
-      converter.ratifiedAdrs!.single.file,
-      'docs/adr/ADR-0001-foundations.md',
-    );
-    expect(output.toString(), 'converted 1 decision entries\n');
   });
 
   test('force commands delegate exact arguments and return zero', () async {
