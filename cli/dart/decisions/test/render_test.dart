@@ -33,12 +33,12 @@ void main() {
     // amending an entry, then the binary's agent instructions, which govern
     // tooling, then the doctor verb, which governs tooling, then the
     // retirement of migrate-legacy, which governs tooling and amends no
-    // entry, then the stream contract every verb shares, which governs tooling and amends no entry,
-    // then the tier table, which defers the verb list without amending an
-    // entry, then the starter style guide, which adds a template without
-    // amending an entry, then the Gas City pack, which governs a delivery
-    // channel and amends no entry, its lineage named for the ruling that it
-    // ships no orders.
+    // entry, then the stream contract every verb shares, which governs
+    // tooling and amends no entry, then the tier table, which defers the verb
+    // list without amending an entry, then the starter style guide, which
+    // adds a template without amending an entry, then the Gas City pack,
+    // which governs a delivery channel and amends no entry, its lineage named
+    // for the ruling that it ships no orders.
     expect(views.map((view) => view.fileName), [
       '0001-the-decision-register.md',
       '0002-the-decisions-cli-ships-as-prebuilt-binaries.md',
