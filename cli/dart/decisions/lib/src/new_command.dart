@@ -15,8 +15,9 @@ typedef DecisionInputReader = String Function();
 /// `decisions new <slug>`: writes one entry with birth values after the
 /// mechanical checks [DecisionRecorder] owns.
 ///
-/// Exit codes: 0 written; 1 refused, with nothing written; a missing required
-/// flag or slug is a usage error.
+/// Exit codes: 0 written, with the result on stdout; 1 refused, with nothing
+/// written and the reason on stderr; a missing required flag or slug is a
+/// usage error.
 final class DecisionNewCommand extends Command<int> {
   /// Creates the command. Without a [recorder], each run builds a
   /// [DecisionRecordService] over [linter] and the resolved roster.
@@ -108,10 +109,11 @@ final class DecisionNewCommand extends Command<int> {
   String get description =>
       'Record a decision: check identity and body, lint, write.\n'
       '\n'
-      'Exits 0 when written, printing the path, the <repo>#<slug> handle and '
-      'one "next:" line per --obsoletes or --updates edge: the force verb '
-      'still to run so the target caches this entry. Exits 1 when refused, '
-      'having written nothing; a malformed invocation is a usage error.';
+      'Exits 0 when written, printing on stdout the path, the <repo>#<slug> '
+      'handle and one "next:" line per --obsoletes or --updates edge: the '
+      'force verb still to run so the target caches this entry. Exits 1 when '
+      'refused, having written nothing, with the reason on stderr; a '
+      'malformed invocation is a usage error.';
 
   @override
   String get invocation => super.invocation.replaceFirst(
