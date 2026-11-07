@@ -28,6 +28,13 @@ docs/decisions/views/0004-landing-policy.md    # a generated view
 Entries are `YYYY-MM-DD-<slug>.md`. **The slug is the identity**, unique per register, and the
 citation handle is `<repo>#<slug>` — e.g. `the_grid#no-file-watching`.
 
+A slug is lowercase kebab-case of at most the register's slug limit, 80 characters unless the
+register sets another. The limit is a setting the register's caller supplies to the tooling,
+through an option on the command line or through the station that composes the verbs. No file in
+the register states it, so a register still reads by grep. Every read and write of a register
+applies the one limit its caller supplies for it, and a cross-register read applies each sibling's
+own. An entry whose slug exceeds the limit is reported as malformed, never truncated.
+
 Entries carry no sequence number. Under binding-on-write, agents record concurrently from separate
 worktrees of the same repo; two sessions allocating the next integer produce two files that merge
 cleanly and silently share an id. Slugs need no allocator at any tier, are self-describing in a
@@ -248,7 +255,8 @@ body after the H1, at least one surface and at least one decision-maker, and any
 `informed`, `obsoletes`, `updates`, `bead` and `date` (today, local time, when omitted) — and the
 verb does the mechanics. It refuses, exiting `1` and writing nothing, on:
 
-1. a slug that is not lowercase kebab-case of at most 80 characters;
+1. a slug that is not lowercase kebab-case of at most the register's slug limit, 80 characters
+   unless the register sets another;
 2. a slug any file in the register already claims — a parsed entry, an unparseable entry whose
    front matter or `<date>-<slug>.md` name carries it, or the target file itself;
 3. a body that carries an H1 of its own (ATX or setext; the title becomes the H1), or lacks
@@ -264,9 +272,10 @@ It writes the birth values — `status: accepted`, `spec: 1`, `obsoleted-by: nul
 `updated-by: []`, `legacy-id: null` — with every free-text value and the slug as a double-quoted
 scalar, creating the register directory when absent. It prints the written path, the
 `<repo>#<slug>` handle, and one `next:` line per authored edge naming the force verb that writes
-the target's cache, with any non-default `--register` and `--repo-root`; a target in another
-register is named with the register to run in and the qualified successor. `new` never rewrites
-another entry: publishing a successor and changing its predecessor stay separate acts.
+the target's cache, with any non-default `--register` and `--repo-root` and any slug limit given
+on the command line; a target in another register is named with the register to run in and the
+qualified successor. `new` never rewrites another entry: publishing a successor and changing its
+predecessor stay separate acts.
 
 ## Tiers
 
