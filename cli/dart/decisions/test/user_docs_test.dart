@@ -94,6 +94,19 @@ void main() {
         expect(verbs, contains(verb), reason: verb);
       }
     });
+
+    test('SPEC.md names decisions resurface as the one later writer of '
+        'surfaces', () {
+      final lines = spec.split('\n');
+      final surfaces = lines.singleWhere(
+        (line) => line.startsWith('| `surfaces` |'),
+      );
+      expect(surfaces, contains('`decisions resurface`'));
+      final authored = lines.singleWhere(
+        (line) => line.startsWith('| `obsoletes`'),
+      );
+      expect(authored, isNot(contains('`surfaces`')));
+    });
   });
 
   for (final path in ['templates/STYLE.md', 'docs/decisions/STYLE.md']) {
