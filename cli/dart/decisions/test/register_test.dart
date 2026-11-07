@@ -132,6 +132,7 @@ void main() {
         'decisions-migrate-legacy-is-retired-with-the-legacy-registers-it-'
         'converted',
       );
+      beads.remove('decisions-lint-gate-is-the-vended-register-ci-check');
       expect(beads.values, everyElement(isNull));
       expect(entries.map((entry) => entry.legacyId), everyElement(isNull));
     });

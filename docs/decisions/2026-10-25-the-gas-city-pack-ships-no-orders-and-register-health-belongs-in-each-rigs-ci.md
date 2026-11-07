@@ -14,7 +14,8 @@ register:
   updates:
     - "the-register-ships-to-gas-city-as-a-pack-of-guide-stubs"
   obsoleted-by: null
-  updated-by: []
+  updated-by:
+    - decisions-lint-gate-is-the-vended-register-ci-check
   bead: "dec-kch"
   legacy-id: null
 ---

@@ -89,6 +89,36 @@ bool isRosterWideSurfaceUnmatched(DecisionLintDiagnostic diagnostic) =>
     diagnostic.ruleId == DecisionLintRules.surfaceUnmatched &&
     diagnostic.message.startsWith('surface "roster:');
 
+/// A lint result split for CI by [isRosterWideSurfaceUnmatched].
+///
+/// `decisions lint --gate` reads [result], which keeps every diagnostic the
+/// shared predicate does not exempt, so each one stays fatal. The gate holds
+/// no matching logic of its own.
+final class DecisionLintGate {
+  /// Partitions [lint]'s diagnostics, keeping their original order.
+  factory DecisionLintGate(DecisionLintResult lint) {
+    final kept = <DecisionLintDiagnostic>[];
+    final exempt = <DecisionLintDiagnostic>[];
+    for (final diagnostic in lint.diagnostics) {
+      (isRosterWideSurfaceUnmatched(diagnostic) ? exempt : kept).add(
+        diagnostic,
+      );
+    }
+    return DecisionLintGate._(
+      DecisionLintResult(register: lint.register, diagnostics: kept),
+      List<DecisionLintDiagnostic>.unmodifiable(exempt),
+    );
+  }
+
+  DecisionLintGate._(this.result, this.exempt);
+
+  /// The register's result with only the non-exempt diagnostics.
+  final DecisionLintResult result;
+
+  /// The unmatched roster-wide surfaces the gate exempted.
+  final List<DecisionLintDiagnostic> exempt;
+}
+
 /// Complete lint result for one register.
 final class DecisionLintResult {
   DecisionLintResult({

@@ -161,8 +161,55 @@ until it is fixed.
 
 It checks the binary and the stubs, never a register. *v1.5.1:* gc runs a pack's doctor checks once
 per city, from the pack's own directory, whichever level imports it, so the check has no rig to
-look at. Check each rig's register in that rig's own CI:
+look at. Check each rig's register in that rig's own CI instead: [Gate the register in
+CI](#gate-the-register-in-ci) gives the job.
+
+## Gate the register in CI
+
+**Before you adopt it**, run the gate locally with the release you will pin, and fix every finding
+it prints:
 
 ```sh
-decisions lint docs/decisions
+decisions lint --gate docs/decisions
 ```
+
+A release older than the flag exits `64` on it; `decisions lint --help` lists `--gate` when the
+binary has it. Releases that carry the flag also let `obsolete`, `update` and `vacate` write an
+entry's cache while unrelated findings sit elsewhere in the register, so a gated register can stay
+clean as decisions accrue.
+
+**The job to copy**, as `.github/workflows/decisions.yaml` in the rig's repository:
+
+```yaml
+name: decisions
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  register:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: memento-engineering/decisions/.github/actions/lint-gate@decisions-vX.Y.Z
+        with:
+          version: X.Y.Z
+          # register: docs/decisions
+          # repo-root: .
+```
+
+The action downloads the `decisions` binary for the runner (Linux x64, Linux arm64 or macOS
+arm64) from that release, verifies it against the release's `SHA256SUMS`, and runs
+`decisions lint --gate`. The rig adds no Dart toolchain and no script. To upgrade, move the
+action's tag and `version` together.
+
+**What `--gate` exempts:** only an unmatched surface written `roster:<path>`. Such a surface
+governs other repositories and resolves only where a station mounts the roster, so a single
+checkout cannot match it. A clean run counts what it exempted:
+`docs/decisions: clean (2 roster-wide surface(s) exempted)`.
+
+**What stays fatal:** everything else plain `decisions lint` reports, namely schema, identity,
+`proposed`, edges, cached force, spec, and any unmatched surface without `roster:`. Each finding
+prints on standard output as `<file>: [<rule>] <message>`, and the job exits `1`.
