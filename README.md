@@ -32,7 +32,7 @@ by copying `templates/` and writing files.
 | Tier | What you get | Needs |
 |---|---|---|
 | 0 — prose | format, templates, a greppable register, skills as plain markdown | nothing |
-| 1 — CLI | `decisions lint / index / search / new / update / obsolete / vacate`, `prime / guide / skills` for agents, `doctor`; JSON out | the [`decisions` binary](#install-the-cli), or any ecosystem impl |
+| 1 — CLI | `decisions lint / index / search / new / update / obsolete / vacate / resurface`, `prime / guide / skills` for agents, `doctor`; JSON out | the [`decisions` binary](#install-the-cli), or any ecosystem impl |
 | 2 — grid | overlay-installed skills, the committee lens, roster-wide cross-repo index and search, decision beads | a station |
 
 The [Gas City pack](#install-in-gas-city) is a way to deliver tier 1 to a Gas City rig's agents,
@@ -79,7 +79,7 @@ result — lint's findings included — goes to standard output; a refusal, an e
 error goes to standard error, so a script can read standard output without filtering it. Help
 you ask for (`--help`, `decisions help <verb>`) is a result: it goes to standard output and exits
 `0`. `obsolete`, `update` and `vacate` refuse a missing target or successor with exit `1`, not
-`64`.
+`64`. `resurface` refuses a missing `--from` or `--to` the same way.
 
 Elsewhere — Intel Macs, Windows — run the same engine with the Dart SDK:
 
@@ -195,6 +195,21 @@ edge naming the force verb that writes the target's cache — `decisions update 
 separate acts. What to record, which surfaces it governs and who decided stay with you; the
 `decide` skill covers that judgement.
 
+## Re-point surfaces after a move
+
+When a restructure moves files that entries govern, re-point their surfaces in the same
+commit:
+
+```sh
+decisions resurface --from 'lib/src/watch/**' --to 'lib/src/fs/watch/**'
+```
+
+It rewrites that glob in every entry that carries it, or only in the entries you name
+with `--entry <slug>`, prints each rewritten slug, and changes nothing else in the file.
+A move is not a decision, so no entry is written. It refuses, writing nothing, when no
+entry carries `--from`, when `--to` matches nothing in the checkout, or when the rewrite
+would leave a rewritten entry with a lint finding it did not have.
+
 ## What is ours
 
 Borrowed deliberately: MADR's vocabulary, sections, path and status values (MIT/CC0); the IETF's
@@ -210,7 +225,7 @@ The format is settled at spec 1 and self-hosted in [`docs/decisions/`](docs/deci
 
 All three tiers are built. Tier 0 works today by copying `templates/`. Tier 1 is the Dart engine
 in [`cli/dart/decisions/`](cli/dart/decisions): `lint`, `index`, `search`, `new`, `update`,
-`obsolete` and `vacate` work the register; `prime`, `guide` and `skills` teach an agent to use
+`obsolete`, `vacate` and `resurface` work the register; `prime`, `guide` and `skills` teach an agent to use
 it; `doctor` checks that the binary can work this register. Tier 2 is
 [`grid_assets/decisions_grid_assets/`](grid_assets/decisions_grid_assets), which installs the
 `decide` and `ratify` skills, vends the `decision-alignment` rubric, and composes a

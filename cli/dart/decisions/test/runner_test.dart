@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:args/command_runner.dart';
 import 'package:decisions/decisions.dart';
+import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 import 'package:yaml/yaml.dart';
 
@@ -60,6 +61,87 @@ void main() {
       );
     });
   }
+
+  test('both hosts carry the resurface verb', () {
+    final grouped = DecisionsCommand(output: StringBuffer());
+    final runner = DecisionsCommandRunner(output: StringBuffer());
+
+    expect(grouped.subcommands['resurface']?.name, 'resurface');
+    expect(runner.commands['resurface']?.name, 'resurface');
+  });
+
+  test('resurface gives the grouped command\'s output', () async {
+    final sandboxes = [
+      for (var i = 0; i < 2; i++)
+        Directory.systemTemp.createTempSync('decisions-resurface-runner-'),
+    ];
+    addTearDown(() {
+      for (final sandbox in sandboxes) {
+        if (sandbox.existsSync()) sandbox.deleteSync(recursive: true);
+      }
+    });
+    final entries = <File>[];
+    for (final sandbox in sandboxes) {
+      File(p.join(sandbox.path, 'src', 'fixture.dart'))
+        ..createSync(recursive: true)
+        ..writeAsStringSync('final class Fixture {}\n');
+      entries.add(
+        File(p.join(sandbox.path, 'docs', 'decisions', '2026-01-01-alpha.md'))
+          ..createSync(recursive: true)
+          ..writeAsStringSync('''
+---
+status: accepted
+date: 2026-01-01
+decision-makers: [fixture]
+register:
+  spec: 1
+  slug: alpha
+  surfaces: ["lib/**"]
+  obsoletes: []
+  updates: []
+  obsoleted-by: null
+  updated-by: []
+  bead: null
+  legacy-id: null
+---
+
+# alpha
+
+A fixture decision body.
+'''),
+      );
+    }
+    List<String> args(Directory sandbox) => [
+      'resurface',
+      '--from',
+      'lib/**',
+      '--to',
+      'src/**',
+      '--register',
+      p.join(sandbox.path, 'docs', 'decisions'),
+      '--repo-root',
+      sandbox.path,
+    ];
+    final groupedOutput = StringBuffer();
+    final station = CommandRunner<int>('station', 'fixture')
+      ..addCommand(DecisionsCommand(output: groupedOutput));
+    final standaloneOutput = StringBuffer();
+
+    final groupedCode = await station.run(['decisions', ...args(sandboxes[0])]);
+    final standaloneCode = await DecisionsCommandRunner(
+      output: standaloneOutput,
+    ).run(args(sandboxes[1]));
+
+    expect(groupedCode, 0);
+    expect(standaloneCode, groupedCode);
+    expect(groupedOutput.toString(), 'alpha\n');
+    expect(standaloneOutput.toString(), groupedOutput.toString());
+    expect(
+      entries[1].readAsBytesSync(),
+      orderedEquals(entries[0].readAsBytesSync()),
+    );
+    expect(entries[0].readAsStringSync(), contains('surfaces: ["src/**"]'));
+  });
 
   test('--version prints the artifact version and the spec', () async {
     final output = StringBuffer();

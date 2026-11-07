@@ -332,6 +332,7 @@ String? _whenToReach(String verb) => switch (verb) {
   'obsolete' ||
   'update' ||
   'vacate' => 'only to carry out a docket ruling; `guide ratify` says how',
+  'resurface' => 'after a move or rename, re-point surfaces at the new path',
   'prime' => 'this orientation',
   'guide' => 'the judgement half: how to decide, how to hold a docket',
   'skills' => 'install skill stubs that defer to `guide`',

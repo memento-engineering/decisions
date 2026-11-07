@@ -281,6 +281,140 @@ void main() {
     });
   });
 
+  group('resurface command', () {
+    late File alpha;
+    late File beta;
+    late StringBuffer output;
+    late StringBuffer error;
+
+    setUp(() {
+      (:alpha, :beta, gamma: _) = _writeResurfaceFixture(register);
+      output = StringBuffer();
+      error = StringBuffer();
+    });
+
+    Future<int> run(List<String> args) => DecisionsCommandRunner(
+      output: output,
+      error: error,
+    ).run(['resurface', ...args]);
+
+    List<String> scoped(List<String> args) => [
+      ...args,
+      '--register',
+      register.path,
+      '--repo-root',
+      sandbox.path,
+    ];
+
+    test('rewrites every carrier and prints their slugs', () async {
+      final alphaBefore = alpha.readAsStringSync();
+      final betaBefore = beta.readAsStringSync();
+
+      expect(await run(scoped(['--from', 'lib/**', '--to', 'src/**'])), 0);
+
+      expect(output.toString(), 'alpha\nbeta\n');
+      expect(error.toString(), isEmpty);
+      expect(
+        alpha.readAsStringSync(),
+        alphaBefore.replaceFirst('"lib/**"', '"src/**"'),
+      );
+      expect(
+        beta.readAsStringSync(),
+        betaBefore.replaceFirst('"lib/**"', '"src/**"'),
+      );
+    });
+
+    test('--entry limits the rewrite, and repeats', () async {
+      final betaBefore = beta.readAsBytesSync();
+
+      expect(
+        await run(
+          scoped(['--from', 'lib/**', '--to', 'src/**', '--entry', 'alpha']),
+        ),
+        0,
+      );
+      expect(output.toString(), 'alpha\n');
+      expect(beta.readAsBytesSync(), orderedEquals(betaBefore));
+
+      output.clear();
+      expect(
+        await run(
+          scoped(['--from', 'src/**', '--to', 'lib/**', '--entry', 'alpha']),
+        ),
+        0,
+      );
+      output.clear();
+      expect(
+        await run(
+          scoped([
+            '--from',
+            'lib/**',
+            '--to',
+            'src/**',
+            '--entry',
+            'alpha',
+            '--entry',
+            'beta',
+          ]),
+        ),
+        0,
+      );
+      expect(output.toString(), 'alpha\nbeta\n');
+      expect(error.toString(), isEmpty);
+    });
+
+    final refusals = <String, ({List<String> args, String reason})>{
+      'the same glob': (
+        args: ['--from', 'lib/**', '--to', 'lib/**'],
+        reason: '--from and --to are the same glob "lib/**"',
+      ),
+      'a --from no entry carries': (
+        args: ['--from', 'nothing/**', '--to', 'src/**'],
+        reason: 'no entry carries surface "nothing/**"',
+      ),
+      'an unmatched --to': (
+        args: ['--from', 'lib/**', '--to', 'missing/**'],
+        reason: 'surface "missing/**" matched no filesystem entry under',
+      ),
+      'an unknown --entry': (
+        args: ['--from', 'lib/**', '--to', 'src/**', '--entry', 'nope'],
+        reason: 'unknown entry slug "nope"',
+      ),
+      'an --entry without --from': (
+        args: ['--from', 'lib/**', '--to', 'src/**', '--entry', 'gamma'],
+        reason: 'entry "gamma" carries no surface "lib/**"',
+      ),
+      'a missing --from': (
+        args: ['--to', 'src/**'],
+        reason: '--from requires a glob',
+      ),
+      'an empty --from': (
+        args: ['--from', '', '--to', 'src/**'],
+        reason: '--from requires a glob',
+      ),
+      'a missing --to': (
+        args: ['--from', 'lib/**'],
+        reason: '--to requires a glob',
+      ),
+      'a positional argument': (
+        args: ['alpha', '--from', 'lib/**', '--to', 'src/**'],
+        reason: 'resurface takes no positional arguments',
+      ),
+    };
+    for (final MapEntry(key: name, value: refusal) in refusals.entries) {
+      test('refuses $name with exit 1, writing nothing', () async {
+        final before = _registerBytes(register);
+
+        expect(await run(scoped(refusal.args)), 1);
+
+        expect(output.toString(), isEmpty);
+        expect(error.toString(), startsWith('error: '));
+        expect(error.toString(), contains(refusal.reason));
+        expect(_registerBytes(register), before);
+      });
+    }
+  });
+
   test('obsolete changes only its force cache and leaves lint clean', () {
     final target = _writeEntry(register, day: 1, slug: 'old-rule');
     _writeEntry(
@@ -1151,6 +1285,34 @@ void main() {
         0,
       );
       expect(parseEntry(target.path, maxSlugLength: 160).status, 'deprecated');
+    });
+
+    test('resurface writes the long entry under the flag, and refuses '
+        'without it', () async {
+      File(p.join(root, 'docs', 'x.md')).writeAsStringSync('# x\n');
+      final before = target.readAsBytesSync();
+      final args = [
+        'resurface',
+        '--from',
+        'README.md',
+        '--to',
+        'docs/**',
+        '--register',
+        reg,
+        '--repo-root',
+        root,
+      ];
+
+      expect(await run(args), 1);
+      expect(error.toString(), contains('invalid `slug`'));
+      expect(output.toString(), isEmpty);
+      expect(target.readAsBytesSync(), orderedEquals(before));
+
+      error.clear();
+      expect(await run([...args, '--max-slug-length', '160']), 0);
+      expect(error.toString(), isEmpty);
+      expect(output.toString(), '$longSlug\n');
+      expect(parseEntry(target.path, maxSlugLength: 160).surfaces, ['docs/**']);
     });
 
     test('a --roster sibling is read under the flag', () async {

@@ -163,6 +163,13 @@ List<Command<int>> _verbs({
         output: resolvedOutput,
         error: resolvedError,
       ),
+    _ResurfaceCommand(
+      linter: linter,
+      registerPaths: resolvedRegisterPaths,
+      slugLimits: slugLimits,
+      output: resolvedOutput,
+      error: resolvedError,
+    ),
     PrimeCommand(output: resolvedOutput),
     GuideCommand(output: resolvedOutput),
     SkillsCommand(output: resolvedOutput, error: resolvedError),
@@ -378,6 +385,115 @@ final class _MutationCommand extends Command<int> {
         successor: successor,
       );
       _output.writeln('$name ${positional.single}: clean');
+      return 0;
+    } on DecisionMutationException catch (error) {
+      _error.writeln('error: ${error.message}');
+      return 1;
+    }
+  }
+}
+
+/// `decisions resurface`: re-points one surface glob after a move.
+final class _ResurfaceCommand extends Command<int> {
+  _ResurfaceCommand({
+    required DecisionLinter? linter,
+    required RegisterPathResolver registerPaths,
+    required DecisionSlugLimits slugLimits,
+    required StringSink output,
+    required StringSink error,
+  }) : _linter = linter,
+       _registerPaths = registerPaths,
+       _slugLimits = slugLimits,
+       _output = output,
+       _error = error {
+    argParser
+      ..addOption(
+        'from',
+        valueHelp: 'glob',
+        help: 'The surface glob to replace, exactly as entries carry it.',
+      )
+      ..addOption(
+        'to',
+        valueHelp: 'glob',
+        help: 'The surface glob that replaces it.',
+      )
+      ..addMultiOption(
+        'entry',
+        valueHelp: 'slug',
+        help:
+            'Rewrite only this entry; repeatable. Defaults to every entry '
+            'carrying --from.',
+      )
+      ..addOption(
+        'register',
+        defaultsTo: 'docs/decisions',
+        help: 'Decision register whose entries are rewritten.',
+      )
+      ..addOption(
+        'repo-root',
+        defaultsTo: '.',
+        help: 'Repository root used to resolve --to and for candidate linting.',
+      )
+      ..addMultiOption('roster', valueHelp: 'register-path', help: _rosterHelp);
+    addMaxSlugLengthOption(argParser);
+  }
+
+  final DecisionLinter? _linter;
+  final RegisterPathResolver _registerPaths;
+  final DecisionSlugLimits _slugLimits;
+  final StringSink _output;
+  final StringSink _error;
+
+  @override
+  String get name => 'resurface';
+
+  @override
+  String get description =>
+      'Re-point a surface glob after a move; records no entry.\n'
+      '\n'
+      'Exits 0 when the entries carrying --from are rewritten, printing each '
+      'rewritten\nslug on stdout. Exits 1 when refused, having written '
+      'nothing, with the reason on\nstderr; a missing --from or --to is a '
+      'refusal, not a usage error.';
+
+  @override
+  void printUsage() => _output.writeln(usage);
+
+  @override
+  int run() {
+    final slugLimits = resolveSlugLimits(this, _slugLimits);
+    final results = argResults!;
+    if (results.rest.isNotEmpty) {
+      _error.writeln('error: resurface takes no positional arguments');
+      return 1;
+    }
+    final from = results.option('from');
+    if (from == null || from.isEmpty) {
+      _error.writeln('error: --from requires a glob');
+      return 1;
+    }
+    final to = results.option('to');
+    if (to == null || to.isEmpty) {
+      _error.writeln('error: --to requires a glob');
+      return 1;
+    }
+
+    final service = DecisionResurfaceService(
+      linter: _linter,
+      roster: _resolveRoster(results, _registerPaths, slugLimits),
+      slugLimits: slugLimits,
+    );
+    try {
+      final rewritten = service.resurface(
+        registerPath: results.option('register')!,
+        repoRoot: results.option('repo-root')!,
+        from: from,
+        to: to,
+        entries: results.multiOption('entry'),
+      );
+      for (final slug in rewritten) {
+        _output.writeln(slug);
+      }
       return 0;
     } on DecisionMutationException catch (error) {
       _error.writeln('error: ${error.message}');

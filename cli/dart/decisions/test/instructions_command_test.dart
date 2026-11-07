@@ -75,9 +75,20 @@ void main() {
       await DecisionsCommandRunner(output: output).run(['prime']);
       final words = output.toString().split(RegExp(r'\s+'));
       expect(words.length, lessThan(250));
-      for (final verb in ['index', 'search', 'lint', 'update', 'guide']) {
+      for (final verb in [
+        'index',
+        'search',
+        'lint',
+        'update',
+        'resurface',
+        'guide',
+      ]) {
         expect(output.toString(), contains('\n  $verb '));
       }
+      expect(
+        output.toString(),
+        contains('after a move or rename, re-point surfaces at the new path'),
+      );
     });
 
     test('names the station prefix when grouped', () async {
