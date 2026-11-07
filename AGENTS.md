@@ -35,6 +35,7 @@ preference.
 | `grid_assets/decisions_grid_assets/` | the tier-2 grid adapter |
 | `gc_pack/decisions/` | the Gas City pack — generated skill stubs, a doctor shim over `decisions doctor`, its install page |
 | `gc_pack/e2e.sh` | maintainer harness: runs the pack through a real gc, one scenario per claim in the pack README |
+| `.github/actions/lint-gate/` | the vended register CI gate: a composite action adopters pin by release tag, running `decisions lint --gate` from the released binary |
 
 Five surfaces are **copies or generated output**. Editing the copy is always wrong: the test
 named beside each one fails, and its generator (`assets install`, `generate_grid_assets`,
@@ -103,6 +104,12 @@ GC_BIN=... BD_BIN=... DOLT_BIN=... DECISIONS_BIN=/path/to/released/decisions \
 
 The label only names the run, so any commit on GitHub that carries `gc_pack/decisions` can be
 checked the same way, released or not.
+
+`release.yaml`'s `register_gate_published` job runs the vended `.github/actions/lint-gate`
+action, as an adopter runs it, against this repository's own register with the release just
+published. It is the only run of the action against a real release: a pull request cannot prove
+it, because no released binary carries a flag that pull request adds. It blocks nothing; a red run
+is fixed forward (the action, the register or a new release), never by moving the tag.
 
 Lint this repo's own register — it is self-hosted, so this is a real check, not a demo:
 

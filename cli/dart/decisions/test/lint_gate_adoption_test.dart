@@ -7,6 +7,11 @@ import 'package:yaml/yaml.dart';
 const _actionPath = '../../../.github/actions/lint-gate/action.yml';
 const _releasePath = '../../../.github/workflows/release.yaml';
 
+/// The user docs that tell a repository owner how to adopt the gate.
+const _packReadmePath = '../../../gc_pack/decisions/README.md';
+const _readmePath = '../../../README.md';
+const _agentsPath = '../../../AGENTS.md';
+
 YamlMap _load(String path) =>
     loadYaml(File(path).readAsStringSync()) as YamlMap;
 
@@ -115,6 +120,64 @@ void main() {
       expect(
         steps.where((step) => '${step['uses'] ?? ''}'.contains('setup-dart')),
         isEmpty,
+      );
+    });
+  });
+
+  group('adoption docs', () {
+    late String pack;
+
+    setUp(() => pack = File(_packReadmePath).readAsStringSync());
+
+    test('the pack README gives the job to copy', () {
+      final section = pack.substring(
+        pack.indexOf('\n## Gate the register in CI\n'),
+      );
+
+      expect(
+        section,
+        contains(
+          'uses: memento-engineering/decisions/.github/actions/lint-gate'
+          '@decisions-v',
+        ),
+      );
+      expect(section, contains('version: '));
+      expect(section, contains('decisions lint --gate docs/decisions'));
+      expect(section, contains('roster:'));
+      expect(section, contains('--gate'));
+      expect(pack, isNot(contains('setup-dart')));
+    });
+
+    test('the doctor section points at the gate section', () {
+      final doctor = pack.substring(
+        pack.indexOf('\n## The doctor check\n'),
+        pack.indexOf('\n## Gate the register in CI\n'),
+      );
+
+      expect(doctor, contains('(#gate-the-register-in-ci)'));
+    });
+
+    test('the root README points at it from the exit codes', () {
+      final readme = File(_readmePath).readAsStringSync();
+
+      expect(readme, contains('decisions lint --gate'));
+      expect(
+        readme,
+        contains('(gc_pack/decisions/README.md#gate-the-register-in-ci)'),
+      );
+    });
+
+    test('AGENTS.md names the action and its post-release job', () {
+      final agents = File(_agentsPath).readAsStringSync();
+
+      expect(agents, contains('`.github/actions/lint-gate/`'));
+      expect(agents, contains('`register_gate_published`'));
+    });
+
+    test('the pack still ships no orders', () {
+      expect(
+        Directory('../../../gc_pack/decisions/orders').existsSync(),
+        false,
       );
     });
   });
