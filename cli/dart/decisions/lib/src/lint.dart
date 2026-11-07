@@ -221,7 +221,7 @@ final class DecisionLintService implements DecisionLinter {
           );
         }
         for (final surface in entry.surfaces) {
-          if (!_surfaceExists(surface, root)) {
+          if (!surfaceMatches(surface, root)) {
             diagnostics.add(
               _diagnostic(
                 entry,
@@ -461,7 +461,11 @@ final class DecisionLintService implements DecisionLinter {
   static bool _sameReferences(List<String> cached, List<String> derived) =>
       cached.length == derived.length && cached.toSet().containsAll(derived);
 
-  static bool _surfaceExists(String pattern, String repoRoot) {
+  /// Whether surface glob [pattern] matches a filesystem entry under
+  /// [repoRoot], or under an ancestor whose name is the pattern's first
+  /// segment — the one test lint's `surface.unmatched` rule and
+  /// `decisions resurface` both apply.
+  static bool surfaceMatches(String pattern, String repoRoot) {
     for (final root in _surfaceRoots(pattern, repoRoot)) {
       try {
         if (Glob(pattern).listSync(root: root, followLinks: false).isNotEmpty) {
