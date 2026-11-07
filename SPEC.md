@@ -138,7 +138,8 @@ put it in.
 
 | field | kind | who writes it |
 |---|---|---|
-| `obsoletes`, `updates`, `surfaces`, `spec`, `slug`, `bead`, `legacy-id` | **authored** | the author, once |
+| `obsoletes`, `updates`, `spec`, `slug`, `bead`, `legacy-id` | **authored** | the author, once |
+| `surfaces` | **authored** | the author, then only `decisions resurface` after a move |
 | `status`, `obsoleted-by`, `updated-by` | **cached** | the tooling, from the graph |
 
 **The body is immutable; the force block is a mechanically-maintained cache.** Deriving force
@@ -162,6 +163,20 @@ prose.
 
 Following the IETF here in one more respect — publishing a successor and changing the
 predecessor's status are **separate deliberate acts**, not one automatic cascade.
+
+### Re-pointing a surface after a move
+
+`decisions resurface --from <glob> --to <glob>` is the one writer of `surfaces` after the
+author. A move, rename or fold changes where a decision's files live, not what it governs,
+so it is not a decision: the verb records no entry and changes no force, and the commit
+that moves the files carries the rewrite. It replaces each surface exactly equal to
+`--from` with `--to` in every entry that carries it, whatever the entry's force, or only
+in the entries named by repeatable `--entry <slug>` options, and changes no other byte; an
+entry that already carries `--to` keeps it once. It refuses, exiting `1` and writing
+nothing, when `--from` equals `--to`; when a named entry is not in the register or does
+not carry `--from`; when no entry carries `--from`; when `--to` matches nothing under
+`--repo-root`, unless it is a `roster:` surface; and when the rewrite would give a
+rewritten entry a lint finding it did not already carry.
 
 ## Vacating
 
@@ -287,8 +302,8 @@ predecessor stay separate acts.
 
 The tier table names capabilities, not verbs. Verbs are tooling and change from release to release;
 the [README](README.md#tiers) and `decisions --help` list the current ones. The verbs this
-document defines (`decisions lint`, `index`, `search`, `new`, `obsolete`, `update` and `vacate`)
-are bound by the sections that define them.
+document defines (`decisions lint`, `index`, `search`, `new`, `obsolete`, `update`, `vacate` and
+`resurface`) are bound by the sections that define them.
 
 Cross-repo union is a tier-2 property because it needs a live roster: a station enumerates its
 mounted substations at runtime. Backstage's ADR plugin is the only comparable thing in the

@@ -224,9 +224,10 @@ Never paste an entry body, and never open an entry no signal named.
 | citation pressure | 3 | affirm, unless the reading shows a real tension | nothing; the docket entry records the affirmation |
 | growth | 4 | affirm, or a new disposition entry where a new entry should have carried an edge | nothing, or `decide` then the force command |
 
-A docket NEVER edits an authored field. `obsoletes`, `updates`, `surfaces`,
-`spec`, `slug`, `bead` and `legacy-id` are written by their author once; a
-ruling that changes the graph records a new entry and runs a force command.
+A docket NEVER edits an authored field. `obsoletes`, `updates`, `spec`, `slug`,
+`bead` and `legacy-id` are written by their author once, and `surfaces` changes
+only through `decisions resurface` after a move, never at a docket; a ruling
+that changes the graph records a new entry and runs a force command.
 
 Present the worksheet as one table with exactly these columns, then STOP and
 ask:
