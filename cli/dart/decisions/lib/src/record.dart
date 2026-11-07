@@ -29,7 +29,8 @@ final class DecisionDraft {
     this.date,
   });
 
-  /// The entry's identity: kebab-case, at most 80 characters.
+  /// The entry's identity: kebab-case, at most the register's slug limit (see
+  /// [DecisionSlugLimits]).
   final String slug;
 
   /// The short declarative title, written as the entry's only H1.
@@ -188,21 +189,27 @@ final class DecisionRecordService implements DecisionRecorder {
   /// through [roster].
   ///
   /// The candidate register is checked by [linter] when one is supplied, and
-  /// otherwise by a linter over the same [roster].
+  /// otherwise by a linter over the same [roster]. The slug, the register's
+  /// existing entries and the default candidate lint all apply the register's
+  /// limit in [slugLimits].
   DecisionRecordService({
     DateTime Function()? clock,
     DecisionLinter? linter,
     DecisionRoster roster = const DecisionRegisterRoster.empty(),
+    DecisionSlugLimits slugLimits = const DecisionSlugLimits(),
   }) : _clock = clock ?? DateTime.now,
        _linter = linter,
-       _roster = roster;
+       _roster = roster,
+       _slugLimits = slugLimits;
 
   final DateTime Function() _clock;
   final DecisionLinter? _linter;
   final DecisionRoster _roster;
+  final DecisionSlugLimits _slugLimits;
 
-  /// The longest slug the format admits.
-  static const maxSlugLength = 80;
+  /// The slug limit of a register whose caller supplies none.
+  @Deprecated('The slug limit is a register setting; use DecisionSlugLimits.')
+  static const maxSlugLength = defaultMaxSlugLength;
 
   /// The headings every body must carry at level two.
   static const requiredSections = <String>[
@@ -237,7 +244,8 @@ final class DecisionRecordService implements DecisionRecorder {
     required String repoRoot,
     required DecisionDraft draft,
   }) {
-    _checkSlug(draft.slug);
+    final maxSlugLength = _slugLimits.forRegisterPath(registerPath);
+    _checkSlug(draft.slug, maxSlugLength);
     final title = draft.title.trim();
     if (title.isEmpty || title.contains('\n')) {
       throw const DecisionRecordException('the title must be one line');
@@ -265,7 +273,10 @@ final class DecisionRecordService implements DecisionRecorder {
     }
     final fileName = '$date-${draft.slug}.md';
     final path = p.join(registerPath, fileName);
-    final (:existing, :unparsed) = _existingEntries(registerPath);
+    final (:existing, :unparsed) = _existingEntries(
+      registerPath,
+      maxSlugLength,
+    );
     _checkCollision(draft.slug, path, existing, unparsed);
     final body = _checkBody(draft.body);
     _checkOwnRegisterEdges(draft, originRegister);
@@ -383,7 +394,7 @@ final class DecisionRecordService implements DecisionRecorder {
         parsed.day == parts[2];
   }
 
-  static void _checkSlug(String slug) {
+  static void _checkSlug(String slug, int maxSlugLength) {
     if (slug.length > maxSlugLength || !_slugPattern.hasMatch(slug)) {
       throw DecisionRecordException(
         'invalid slug "$slug"; use at most $maxSlugLength characters of '
@@ -395,7 +406,7 @@ final class DecisionRecordService implements DecisionRecorder {
   /// The parseable entries already in the register, and the files that
   /// failed to parse; both empty when the register is absent.
   static ({List<DecisionEntry> existing, List<String> unparsed})
-  _existingEntries(String registerPath) {
+  _existingEntries(String registerPath, int maxSlugLength) {
     final unparsed = <String>[];
     if (!Directory(registerPath).existsSync()) {
       return (existing: const <DecisionEntry>[], unparsed: unparsed);
@@ -403,6 +414,7 @@ final class DecisionRecordService implements DecisionRecorder {
     try {
       final existing = readRegister(
         registerPath,
+        maxSlugLength: maxSlugLength,
         onParseError: (error) => unparsed.add(error.file),
       );
       return (existing: existing, unparsed: unparsed);
@@ -572,7 +584,9 @@ final class DecisionRecordService implements DecisionRecorder {
         p.relative(p.absolute(candidate.path), from: root),
       );
 
-      final linter = _linter ?? DecisionLintService(roster: _roster);
+      final linter =
+          _linter ??
+          DecisionLintService(roster: _roster, slugLimits: _slugLimits);
       final result = linter.lint(
         registerPath: candidateRegister.path,
         repoRoot: repoRoot,

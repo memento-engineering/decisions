@@ -170,6 +170,36 @@ void main() {
     });
   }
 
+  group("under a register's own slug limit", () {
+    const limits = DecisionSlugLimits(byRegister: {'alpha': 160});
+    final limited = DecisionRecordService(
+      clock: () => DateTime(2026, 10, 24),
+      slugLimits: limits,
+    );
+
+    test('writes a slug the default would refuse, and it lints clean', () {
+      final slug = '${'a' * 59}-${'b' * 60}';
+      final result = record(draft(slug: slug), recorder: limited);
+
+      expect(result.path, p.join(registerPath, '2026-10-24-$slug.md'));
+      expect(parseEntry(result.path, maxSlugLength: 160).slug, slug);
+      expect(
+        const DecisionLintService(
+          slugLimits: limits,
+        ).lint(registerPath: registerPath, repoRoot: repoRoot).diagnostics,
+        isEmpty,
+      );
+    });
+
+    test('still refuses a slug that is not kebab-case, naming the limit', () {
+      expectRefused(
+        draft(slug: 'Upper-Case'),
+        'use at most 160 characters',
+        recorder: limited,
+      );
+    });
+  });
+
   group('refuses, writing nothing,', () {
     for (final slug in [
       'Upper',
@@ -182,6 +212,26 @@ void main() {
         expectRefused(draft(slug: slug), 'invalid slug');
       });
     }
+
+    test('a slug over the default limit, naming the limit', () {
+      expectRefused(
+        draft(slug: 'a' * 81),
+        'use at most 80 characters of lowercase kebab-case',
+      );
+    });
+
+    test('a slug over a uniform limit, naming that limit', () {
+      final slug = 'a' * 41;
+      expectRefused(
+        draft(slug: slug),
+        'invalid slug "$slug"; use at most 40 characters of lowercase '
+        'kebab-case',
+        recorder: DecisionRecordService(
+          clock: () => DateTime(2026, 10, 24),
+          slugLimits: const DecisionSlugLimits.uniform(40),
+        ),
+      );
+    });
 
     test('a slug already recorded on another date', () {
       final first = record(draft(date: '2026-01-01'));

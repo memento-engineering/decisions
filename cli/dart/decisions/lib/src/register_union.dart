@@ -13,6 +13,51 @@ const decisionEntrySpecMinimum = 1;
 /// Highest decision-entry spec this artifact reads.
 const decisionEntrySpecMaximum = 1;
 
+/// The slug limit each register a run reads applies.
+///
+/// A register's slug limit is a setting its caller supplies: a station that
+/// composes the verbs names each register's limit in [byRegister], keyed by
+/// origin register (the `<repo>` of `<repo>#<slug>`), and every register it
+/// does not name applies [fallback]. Keying by origin register rather than
+/// by path means a candidate copy of a register, linted at
+/// `<tmp>/<repo>/docs/decisions`, resolves the same limit as the register
+/// itself.
+final class DecisionSlugLimits {
+  /// Creates limits that apply [byRegister] where it names a register and
+  /// [fallback] everywhere else.
+  const DecisionSlugLimits({
+    this.fallback = defaultMaxSlugLength,
+    this.byRegister = const <String, int>{},
+  }) : assert(fallback > 0, 'a slug limit must be positive');
+
+  /// Creates limits that apply [maxSlugLength] to every register.
+  const DecisionSlugLimits.uniform(int maxSlugLength)
+    : this(fallback: maxSlugLength);
+
+  /// The limit of every register [byRegister] does not name.
+  final int fallback;
+
+  /// Per-register limits, keyed by origin register.
+  final Map<String, int> byRegister;
+
+  /// The limit the register named [originRegister] applies; [fallback] when
+  /// it is null or unnamed.
+  int forRegister(String? originRegister) =>
+      byRegister[originRegister] ?? fallback;
+
+  /// The limit the register at [registerPath] applies, by the origin
+  /// register its path names; [fallback] when no origin can be inferred.
+  int forRegisterPath(String registerPath) {
+    final String origin;
+    try {
+      origin = decisionOriginRegister(p.absolute(p.normalize(registerPath)));
+    } on DecisionRegisterUnionException {
+      return fallback;
+    }
+    return forRegister(origin);
+  }
+}
+
 /// One parsed register inside a [DecisionRegisterUnion].
 final class DecisionRegisterSnapshot {
   /// Creates a snapshot over already-parsed [entries].
@@ -62,9 +107,12 @@ final class DecisionRegisterUnion implements DecisionRoster {
 
   /// Reads [registerPaths], retaining malformed-entry diagnostics while
   /// refusing inputs that cannot form a supported, unambiguous union.
+  ///
+  /// Each register is read under its own limit in [slugLimits].
   factory DecisionRegisterUnion.fromRegisterPaths(
-    Iterable<String> registerPaths,
-  ) {
+    Iterable<String> registerPaths, {
+    DecisionSlugLimits slugLimits = const DecisionSlugLimits(),
+  }) {
     final paths = registerPaths.map(p.normalize).toList(growable: false);
     if (paths.isEmpty) {
       throw const DecisionRegisterUnionException(
@@ -86,6 +134,7 @@ final class DecisionRegisterUnion implements DecisionRoster {
 
       final entries = readRegister(
         path,
+        maxSlugLength: slugLimits.forRegister(name),
         onParseError: (error) {
           diagnostics.add(DecisionLintDiagnostic.fromParseException(error));
         },
@@ -164,10 +213,12 @@ final class DecisionRegisterRoster implements DecisionRoster {
   /// A path that is absent, malformed, or cannot form an unambiguous graph is
   /// skipped, and a name claimed by two paths resolves to neither: a roster
   /// never fails the verb that asked for it, and never resolves a citation it
-  /// cannot resolve unambiguously.
+  /// cannot resolve unambiguously. Each register is read under its own limit
+  /// in [slugLimits].
   factory DecisionRegisterRoster.fromRegisterPaths(
-    Iterable<String> registerPaths,
-  ) {
+    Iterable<String> registerPaths, {
+    DecisionSlugLimits slugLimits = const DecisionSlugLimits(),
+  }) {
     final byName = <String, DecisionRegisterSnapshot>{};
     final ambiguous = <String>{};
     for (final path in registerPaths) {
@@ -187,7 +238,11 @@ final class DecisionRegisterRoster implements DecisionRoster {
         byName[name] = DecisionRegisterSnapshot(
           originRegister: name,
           originPath: normalized,
-          entries: readRegister(normalized, onParseError: (_) {}),
+          entries: readRegister(
+            normalized,
+            maxSlugLength: slugLimits.forRegister(name),
+            onParseError: (_) {},
+          ),
         );
       } on DecisionParseException {
         continue;

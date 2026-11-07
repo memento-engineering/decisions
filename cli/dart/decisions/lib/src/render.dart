@@ -4,6 +4,7 @@ import 'package:path/path.dart' as p;
 
 import 'entry.dart';
 import 'graph.dart';
+import 'register_union.dart';
 
 const _entryOpen = '{{#entries}}';
 const _entryClose = '{{/entries}}';
@@ -63,12 +64,20 @@ List<DecisionView> renderViews({
 }
 
 /// Reads a register and template, then replaces its generated Markdown views.
+///
+/// The register is read under its limit in [slugLimits].
 List<DecisionView> renderRegister({
   required String registerDirectory,
   required String templateFile,
   required String outputDirectory,
+  DecisionSlugLimits slugLimits = const DecisionSlugLimits(),
 }) {
-  final graph = DecisionGraph(readRegister(registerDirectory));
+  final graph = DecisionGraph(
+    readRegister(
+      registerDirectory,
+      maxSlugLength: slugLimits.forRegisterPath(registerDirectory),
+    ),
+  );
   final template = File(templateFile).readAsStringSync();
   final views = renderViews(graph: graph, template: template);
   final output = Directory(outputDirectory);

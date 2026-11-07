@@ -3,6 +3,9 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:yaml/yaml.dart';
 
+/// The slug limit a register applies when its caller supplies none.
+const defaultMaxSlugLength = 80;
+
 /// The structured reason an entry could not be parsed.
 enum DecisionParseFailure {
   /// Front matter does not satisfy the spec-1 schema shape.
@@ -150,9 +153,12 @@ bool isDecisionEntryFile(String path) {
 /// [onParseError] is absent, the first malformed entry is thrown exactly as
 /// before. When supplied, each [DecisionParseException] is reported and the
 /// remaining files are parsed.
+///
+/// Every file is parsed under [maxSlugLength], the register's slug limit.
 List<DecisionEntry> readRegister(
   String directory, {
   void Function(DecisionParseException error)? onParseError,
+  int maxSlugLength = defaultMaxSlugLength,
 }) {
   final dir = Directory(directory);
   if (!dir.existsSync()) {
@@ -168,7 +174,7 @@ List<DecisionEntry> readRegister(
   final entries = <DecisionEntry>[];
   for (final file in files) {
     try {
-      entries.add(parseEntry(file.path));
+      entries.add(parseEntry(file.path, maxSlugLength: maxSlugLength));
     } on DecisionParseException catch (error) {
       final handler = onParseError;
       if (handler == null) rethrow;
@@ -179,7 +185,13 @@ List<DecisionEntry> readRegister(
 }
 
 /// Parses one entry file.
-DecisionEntry parseEntry(String file) {
+///
+/// A slug longer than [maxSlugLength], the register's slug limit, or not
+/// lowercase kebab-case is refused as an invalid `slug`.
+DecisionEntry parseEntry(
+  String file, {
+  int maxSlugLength = defaultMaxSlugLength,
+}) {
   final text = File(file).readAsStringSync();
   final match = RegExp(
     r'^---\r?\n(.*?)\r?\n---\r?\n',
@@ -239,7 +251,7 @@ DecisionEntry parseEntry(String file) {
     throw DecisionParseException(file, '`spec` must be at least 1');
   }
   final slug = _string(file, registerValue, 'slug');
-  if (slug.length > 80 || !_slugPattern.hasMatch(slug)) {
+  if (slug.length > maxSlugLength || !_slugPattern.hasMatch(slug)) {
     throw DecisionParseException(file, 'invalid `slug`');
   }
   final expectedName = '$date-$slug.md';

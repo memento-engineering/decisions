@@ -7,6 +7,7 @@ import 'entry.dart';
 import 'guide.dart';
 import 'instructions_command.dart';
 import 'lint.dart';
+import 'register_union.dart';
 import 'version.dart';
 
 /// How bad one [DoctorFinding] is, in ascending order.
@@ -173,6 +174,7 @@ final class DecisionDoctorService implements DecisionDoctor {
     this.version = decisionsVersion,
     this.supportedSpec = DecisionLintService.supportedSpec,
     this.guides = bundledGuides,
+    this.slugLimits = const DecisionSlugLimits(),
   });
 
   /// The artifact version reported by the `binary` check.
@@ -183,6 +185,10 @@ final class DecisionDoctorService implements DecisionDoctor {
 
   /// The guides this binary carries, whose stubs the `skills` check expects.
   final List<Guide> guides;
+
+  /// The slug limit each register applies; the `register` check parses every
+  /// entry under its register's limit.
+  final DecisionSlugLimits slugLimits;
 
   /// The fix for a register or stub newer than this binary.
   static const upgradeHint =
@@ -269,6 +275,7 @@ final class DecisionDoctorService implements DecisionDoctor {
 
     final newer = <(String, int)>[];
     final unparsed = <(String, String)>[];
+    final maxSlugLength = slugLimits.forRegisterPath(register);
     for (final file in files) {
       final String text;
       try {
@@ -285,7 +292,7 @@ final class DecisionDoctorService implements DecisionDoctor {
         continue;
       }
       try {
-        parseEntry(file);
+        parseEntry(file, maxSlugLength: maxSlugLength);
       } on DecisionParseException catch (error) {
         unparsed.add((file, error.message));
       } on FileSystemException catch (error) {

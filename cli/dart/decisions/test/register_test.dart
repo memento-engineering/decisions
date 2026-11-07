@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:decisions/decisions.dart';
+import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 /// This repository's own register, relative to the package root.
@@ -197,4 +200,257 @@ void main() {
       throwsA(isA<DecisionParseException>()),
     );
   });
+
+  group("a register's slug limit", () {
+    final longSlug = '${'a' * 59}-${'b' * 60}';
+    late Directory sandbox;
+    late String longRoot;
+    late String longRegister;
+    late String otherRegister;
+    late String longFile;
+
+    setUp(() {
+      expect(longSlug, hasLength(120));
+      sandbox = Directory.systemTemp.createTempSync('decisions-slug-limit-');
+      longRoot = p.join(sandbox.path, 'long_repo');
+      longRegister = p.join(longRoot, 'docs', 'decisions');
+      otherRegister = p.join(sandbox.path, 'other_repo', 'docs', 'decisions');
+      for (final root in [longRoot, p.join(sandbox.path, 'other_repo')]) {
+        File(p.join(root, 'README.md'))
+          ..createSync(recursive: true)
+          ..writeAsStringSync('# fixture\n');
+      }
+      longFile = _writeLimitEntry(longRegister, longSlug);
+      _writeLimitEntry(otherRegister, longSlug);
+    });
+
+    tearDown(() {
+      if (sandbox.existsSync()) sandbox.deleteSync(recursive: true);
+    });
+
+    Matcher invalidSlug() => throwsA(
+      isA<DecisionParseException>().having(
+        (error) => error.message,
+        'message',
+        'invalid `slug`',
+      ),
+    );
+
+    test('parseEntry applies the limit it is given', () {
+      expect(() => parseEntry(longFile), invalidSlug());
+      expect(() => parseEntry(longFile, maxSlugLength: 119), invalidSlug());
+      expect(parseEntry(longFile, maxSlugLength: 120).slug, longSlug);
+      expect(parseEntry(longFile, maxSlugLength: 160).slug, longSlug);
+    });
+
+    test('readRegister applies the limit to every entry', () {
+      expect(
+        readRegister(longRegister, maxSlugLength: 160).map((e) => e.slug),
+        [longSlug],
+      );
+    });
+
+    test('DecisionSlugLimits resolves a register, by name or by path', () {
+      expect(defaultMaxSlugLength, 80);
+      expect(const DecisionSlugLimits().fallback, defaultMaxSlugLength);
+      expect(const DecisionSlugLimits().forRegister('long_repo'), 80);
+      expect(const DecisionSlugLimits().forRegister(null), 80);
+      expect(const DecisionSlugLimits.uniform(40).forRegister('any'), 40);
+      const limits = DecisionSlugLimits(
+        fallback: 90,
+        byRegister: {'long_repo': 160},
+      );
+      expect(limits.forRegister('long_repo'), 160);
+      expect(limits.forRegister('other_repo'), 90);
+      expect(limits.forRegisterPath(longRegister), 160);
+      expect(limits.forRegisterPath(otherRegister), 90);
+    });
+
+    test('a union applies each register its own limit', () {
+      final union = DecisionRegisterUnion.fromRegisterPaths([
+        longRegister,
+        otherRegister,
+      ], slugLimits: const DecisionSlugLimits(byRegister: {'long_repo': 160}));
+
+      expect(
+        union.findRegister('long_repo')!.graph.entries.keys,
+        contains(longSlug),
+      );
+      expect(union.findRegister('other_repo')!.graph.entries, isEmpty);
+      expect(union.diagnostics, hasLength(1));
+      expect(union.diagnostics.single.message, 'invalid `slug`');
+      expect(union.diagnostics.single.file, contains('other_repo'));
+    });
+
+    test('a roster reads a sibling under the limit its caller supplies', () {
+      final reference = DecisionReference(
+        register: 'long_repo',
+        reference: longSlug,
+      );
+      final limited = DecisionRegisterRoster.fromRegisterPaths([
+        longRegister,
+      ], slugLimits: const DecisionSlugLimits(byRegister: {'long_repo': 160}));
+      expect(limited.resolveReference(reference)?.slug, longSlug);
+
+      final unlimited = DecisionRegisterRoster.fromRegisterPaths([
+        longRegister,
+      ]);
+      expect(unlimited.resolveReference(reference), isNull);
+    });
+
+    test('index and search list the entry under the limit', () {
+      const limits = DecisionSlugLimits(byRegister: {'long_repo': 160});
+      final index = DecisionIndex.fromRegisterPaths([
+        longRegister,
+      ], slugLimits: limits);
+      expect(index.decisions.map((d) => d.slug), [longSlug]);
+      expect(index.diagnostics, isEmpty);
+
+      final result = const DecisionSearchService().search(
+        query: 'aaaa',
+        registerPaths: [longRegister],
+        slugLimits: limits,
+      );
+      expect(result.hits.map((hit) => hit.slug), [longSlug]);
+      expect(result.diagnostics, isEmpty);
+    });
+
+    test('lint parses under the limit', () {
+      final clean = const DecisionLintService(
+        slugLimits: DecisionSlugLimits.uniform(160),
+      ).lint(registerPath: longRegister, repoRoot: longRoot);
+      expect(clean.diagnostics, isEmpty);
+
+      final dirty = const DecisionLintService().lint(
+        registerPath: longRegister,
+        repoRoot: longRoot,
+      );
+      expect(dirty.diagnostics.map((d) => '${d.ruleId} ${d.message}'), [
+        'entry.schema invalid `slug`',
+      ]);
+    });
+
+    test('a force mutation reads and lints its candidate under the limit', () {
+      _writeLimitEntry(longRegister, 'amends-long-rule', updates: [longSlug]);
+      final before = File(longFile).readAsStringSync();
+
+      expect(
+        () => const DecisionMutationService().update(
+          registerPath: longRegister,
+          repoRoot: longRoot,
+          target: longSlug,
+          successor: 'amends-long-rule',
+        ),
+        throwsA(
+          isA<DecisionMutationException>().having(
+            (error) => error.message,
+            'message',
+            contains('invalid `slug`'),
+          ),
+        ),
+      );
+      expect(File(longFile).readAsStringSync(), before);
+
+      const limits = DecisionSlugLimits.uniform(160);
+      const DecisionMutationService(slugLimits: limits).update(
+        registerPath: longRegister,
+        repoRoot: longRoot,
+        target: longSlug,
+        successor: 'amends-long-rule',
+      );
+      expect(parseEntry(longFile, maxSlugLength: 160).cachedUpdatedBy, [
+        'amends-long-rule',
+      ]);
+      expect(
+        const DecisionLintService(
+          slugLimits: limits,
+        ).lint(registerPath: longRegister, repoRoot: longRoot).diagnostics,
+        isEmpty,
+      );
+    });
+
+    test('a write lints its candidate under the limit', () {
+      final secondSlug = '${'c' * 59}-${'d' * 60}';
+      final result =
+          DecisionRecordService(
+            clock: () => DateTime(2026, 11, 5),
+            slugLimits: const DecisionSlugLimits.uniform(160),
+          ).record(
+            registerPath: longRegister,
+            repoRoot: longRoot,
+            draft: DecisionDraft(
+              slug: secondSlug,
+              title: 'A second long rule',
+              surfaces: const ['README.md'],
+              decisionMakers: const ['nico'],
+              body: _limitBody,
+            ),
+          );
+      expect(result.path, p.join(longRegister, '2026-11-05-$secondSlug.md'));
+      expect(parseEntry(result.path, maxSlugLength: 160).slug, secondSlug);
+    });
+
+    test('lib holds one literal 80, the default', () {
+      final standalone = RegExp(r'(?<![0-9A-Za-z_])80(?![0-9A-Za-z_])');
+      final hits = <String>[];
+      for (final file in Directory('lib').listSync(recursive: true)) {
+        if (file is! File || !file.path.endsWith('.dart')) continue;
+        final lines = file.readAsLinesSync();
+        for (var i = 0; i < lines.length; i++) {
+          if (standalone.hasMatch(lines[i])) {
+            hits.add('${p.normalize(file.path)}:${lines[i].trim()}');
+          }
+        }
+      }
+      expect(hits, [
+        '${p.join('lib', 'src', 'entry.dart')}:'
+            'const defaultMaxSlugLength = 80;',
+      ]);
+    });
+  });
+}
+
+const _limitBody = '''
+## Context and Problem Statement
+
+Fixture.
+
+## Decision Outcome
+
+Fixture.
+''';
+
+/// Writes an accepted entry dated 2026-11-05 governing `README.md`, and
+/// returns its path.
+String _writeLimitEntry(
+  String register,
+  String slug, {
+  List<String> updates = const [],
+}) {
+  final file = File(p.join(register, '2026-11-05-$slug.md'))
+    ..createSync(recursive: true)
+    ..writeAsStringSync('''
+---
+status: accepted
+date: 2026-11-05
+decision-makers: ["nico"]
+consulted: []
+informed: []
+register:
+  spec: 1
+  slug: "$slug"
+  surfaces:
+    - "README.md"
+  obsoletes: []
+  updates: [${updates.map((u) => '"$u"').join(', ')}]
+  obsoleted-by: null
+  updated-by: []
+  bead: null
+  legacy-id: null
+---
+
+# $slug
+
+$_limitBody''');
+  return file.path;
 }
