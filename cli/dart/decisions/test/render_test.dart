@@ -36,8 +36,10 @@ void main() {
     // entry, then the stream contract every verb shares, which governs
     // tooling and amends no entry, then the tier table, which defers the verb
     // list without amending an entry, then the starter style guide, which
-    // adds a template without amending an entry. The Gas City pack's lineage
-    // joins the CLI's distribution: the vended register CI gate amends both.
+    // adds a template without amending an entry, then the resurface verb,
+    // which states a new writer of surfaces without amending an entry. The
+    // Gas City pack's lineage joins the CLI's distribution: the vended
+    // register CI gate amends both.
     expect(views.map((view) => view.fileName), [
       '0001-the-decision-register.md',
       '0002-the-decisions-cli-ships-as-prebuilt-binaries.md',
@@ -53,6 +55,8 @@ void main() {
       '0008-spec-tier-table-describes-capabilities-and-defers-the-verb-list-'
           'to-the-cli.md',
       '0009-templates-style-md-is-the-starter-style-guide-for-a-register.md',
+      '0010-decisions-resurface-re-points-a-surface-after-a-move-and-records-'
+          'no-entry.md',
     ]);
     final combined = views.map((view) => view.content).join('\n');
     final graph = DecisionGraph(readRegister(_selfHostedRegister));
@@ -60,7 +64,7 @@ void main() {
         .where((entry) => graph.isBinding(entry.slug))
         .toList();
 
-    expect(binding, hasLength(24));
+    expect(binding, hasLength(25));
     for (final entry in binding) {
       expect(combined, contains('<a id="${entry.slug}"></a>'));
     }
@@ -115,7 +119,7 @@ void main() {
     );
     final views = renderViews(graph: graph, template: template);
 
-    expect(views, hasLength(9));
+    expect(views, hasLength(10));
     for (final view in views) {
       expect(view.content, startsWith('<!-- layout sentinel -->'));
     }

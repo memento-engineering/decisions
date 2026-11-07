@@ -133,6 +133,10 @@ void main() {
         'converted',
       );
       beads.remove('decisions-lint-gate-is-the-vended-register-ci-check');
+      beads.remove(
+        'decisions-resurface-re-points-a-surface-after-a-move-and-records-no-'
+        'entry',
+      );
       expect(beads.values, everyElement(isNull));
       expect(entries.map((entry) => entry.legacyId), everyElement(isNull));
     });
