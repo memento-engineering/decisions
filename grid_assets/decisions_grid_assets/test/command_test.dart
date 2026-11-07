@@ -1,7 +1,9 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:args/command_runner.dart';
 import 'package:decisions_grid_assets/decisions_grid_assets.dart';
+import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 const String _sourceRoot =
@@ -145,6 +147,87 @@ void main() {
       ),
     );
     expect(output.toString(), isEmpty);
+  });
+
+  group("a station composes each register's slug limit", () {
+    final longSlug = '${'a' * 59}-${'b' * 60}';
+    late Directory sandbox;
+    late String longRoot;
+
+    setUp(() {
+      sandbox = Directory.systemTemp.createTempSync('decisions-grid-limit-');
+      longRoot = p.join(sandbox.path, 'long_repo');
+      File(p.join(longRoot, 'docs', 'decisions', '2026-11-05-$longSlug.md'))
+        ..createSync(recursive: true)
+        ..writeAsStringSync('''
+---
+status: accepted
+date: 2026-11-05
+decision-makers: ["nico"]
+consulted: []
+informed: []
+register:
+  spec: 1
+  slug: "$longSlug"
+  surfaces:
+    - "README.md"
+  obsoletes: []
+  updates: []
+  obsoleted-by: null
+  updated-by: []
+  bead: null
+  legacy-id: null
+---
+
+# A long rule
+
+Fixture.
+''');
+    });
+
+    tearDown(() {
+      if (sandbox.existsSync()) sandbox.deleteSync(recursive: true);
+    });
+
+    Future<Map<String, dynamic>> index({DecisionSlugLimits? slugLimits}) async {
+      final output = StringBuffer();
+      final command = slugLimits == null
+          ? buildDecisionsCommand(
+              mountedSubstationRoots: () => [longRoot],
+              output: output,
+            )
+          : buildDecisionsCommand(
+              mountedSubstationRoots: () => [longRoot],
+              slugLimits: slugLimits,
+              output: output,
+            );
+      final runner = CommandRunner<int>('station', 'fixture')
+        ..addCommand(command);
+      expect(await runner.run(['decisions', 'index']), 0);
+      return jsonDecode(output.toString()) as Map<String, dynamic>;
+    }
+
+    test('the composed limit reads the long entry', () async {
+      final decoded = await index(
+        slugLimits: const DecisionSlugLimits(byRegister: {'long_repo': 160}),
+      );
+      final decisions = (decoded['decisions'] as List<dynamic>)
+          .cast<Map<String, dynamic>>();
+      expect(decisions, hasLength(1));
+      expect(decisions.single['originRegister'], 'long_repo');
+      expect(decisions.single['slug'], longSlug);
+      expect(decoded['diagnostics'], isEmpty);
+    });
+
+    test('without one, the default reports the slug', () async {
+      expect(defaultMaxSlugLength, 80);
+      final decoded = await index();
+      expect(decoded['decisions'], isEmpty);
+      final diagnostics = (decoded['diagnostics'] as List<dynamic>)
+          .cast<Map<String, dynamic>>();
+      expect(diagnostics, hasLength(1));
+      expect(diagnostics.single['message'], 'invalid `slug`');
+    });
   });
 
   test('declares spec-1 read range and no writes', () {
