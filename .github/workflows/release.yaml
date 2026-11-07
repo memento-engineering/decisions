@@ -209,3 +209,22 @@ jobs:
             DOLT_BIN="$RUNNER_TEMP/bin/dolt" DECISIONS_BIN="$RUNNER_TEMP/bin/decisions" \
             E2E_PUBLISHED_SOURCE="$GC_PACK_SOURCE" \
             gc_pack/e2e.sh --published "$GITHUB_REF_NAME" "$SHA"
+
+  register_gate_published:
+    # The vended lint-gate action, run as an adopter runs it: the release just
+    # published, downloaded and checked against its SHA256SUMS, gating this
+    # repository's own register with decisions lint --gate. No Dart is set up.
+    #
+    # Nothing depends on this job and it blocks nothing: the release is out. A
+    # red run is fixed forward (the action, the register, or a new release);
+    # the tag and the release stay.
+    needs: release
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - id: version
+        name: The tag's version
+        run: echo "version=${GITHUB_REF_NAME#decisions-v}" >> "$GITHUB_OUTPUT"
+      - uses: ./.github/actions/lint-gate
+        with:
+          version: ${{ steps.version.outputs.version }}

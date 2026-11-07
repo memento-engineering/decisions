@@ -1,0 +1,52 @@
+name: decisions lint --gate
+description: >-
+  Gate a decision register in CI with the released, checksum-verified
+  decisions binary: download it for this runner, verify it against the
+  release's SHA256SUMS, and run `decisions lint --gate`. No Dart toolchain.
+
+inputs:
+  version:
+    description: >-
+      The decisions release to run, without its decisions-v prefix (0.4.0 for
+      decisions-v0.4.0). Pin it to the same release as this action's ref.
+    required: true
+  register:
+    description: The register directory, relative to the workspace.
+    required: false
+    default: docs/decisions
+  repo-root:
+    description: The repository root that resolves governed surfaces.
+    required: false
+    default: .
+
+runs:
+  using: composite
+  steps:
+    - name: decisions lint --gate
+      shell: bash
+      env:
+        DECISIONS_VERSION: ${{ inputs.version }}
+        DECISIONS_REGISTER: ${{ inputs.register }}
+        DECISIONS_REPO_ROOT: ${{ inputs.repo-root }}
+      run: |
+        set -euo pipefail
+        case "$RUNNER_OS-$RUNNER_ARCH" in
+          Linux-X64) target=linux-x64 ;;
+          Linux-ARM64) target=linux-arm64 ;;
+          macOS-ARM64) target=macos-arm64 ;;
+          *) echo "no decisions binary for $RUNNER_OS $RUNNER_ARCH" >&2; exit 1 ;;
+        esac
+        asset="decisions-$DECISIONS_VERSION-$target"
+        base="https://github.com/memento-engineering/decisions/releases/download/decisions-v$DECISIONS_VERSION"
+        dir="$RUNNER_TEMP/decisions-lint-gate"
+        mkdir -p "$dir"
+        curl -fsSL -o "$dir/$asset" "$base/$asset"
+        curl -fsSL -o "$dir/SHA256SUMS" "$base/SHA256SUMS"
+        if [ "$RUNNER_OS" = macOS ]; then
+          (cd "$dir" && grep " $asset\$" SHA256SUMS | shasum -a 256 -c -)
+        else
+          (cd "$dir" && grep " $asset\$" SHA256SUMS | sha256sum -c -)
+        fi
+        chmod 0755 "$dir/$asset"
+        "$dir/$asset" --version
+        "$dir/$asset" lint --gate "$DECISIONS_REGISTER" --repo-root "$DECISIONS_REPO_ROOT"

@@ -174,6 +174,13 @@ final class _LintCommand extends Command<int> {
         'json',
         negatable: false,
         help: 'Emit the schema-versioned JSON result.',
+      )
+      ..addFlag(
+        'gate',
+        negatable: false,
+        help:
+            'CI mode: exempt unmatched surfaces marked roster: and fail on '
+            'every other finding.',
       );
   }
 
@@ -198,14 +205,22 @@ final class _LintCommand extends Command<int> {
         DecisionLintService(
           roster: _resolveRoster(argResults!, _registerPaths),
         );
-    final result = linter.lint(
+    final linted = linter.lint(
       registerPath: positional.single,
       repoRoot: argResults!.option('repo-root')!,
     );
+    final gate = argResults!.flag('gate') ? DecisionLintGate(linted) : null;
+    final result = gate?.result ?? linted;
+    final exempted = gate?.exempt.length ?? 0;
     if (argResults!.flag('json')) {
       _output.writeln(jsonEncode(result.toJson()));
     } else if (result.isClean) {
-      _output.writeln('${result.register}: clean');
+      _output.writeln(
+        exempted == 0
+            ? '${result.register}: clean'
+            : '${result.register}: clean '
+                  '($exempted roster-wide surface(s) exempted)',
+      );
     } else {
       for (final diagnostic in result.diagnostics) {
         _output.writeln(

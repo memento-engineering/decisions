@@ -36,9 +36,8 @@ void main() {
     // entry, then the stream contract every verb shares, which governs
     // tooling and amends no entry, then the tier table, which defers the verb
     // list without amending an entry, then the starter style guide, which
-    // adds a template without amending an entry, then the Gas City pack,
-    // which governs a delivery channel and amends no entry, its lineage named
-    // for the ruling that it ships no orders.
+    // adds a template without amending an entry. The Gas City pack's lineage
+    // joins the CLI's distribution: the vended register CI gate amends both.
     expect(views.map((view) => view.fileName), [
       '0001-the-decision-register.md',
       '0002-the-decisions-cli-ships-as-prebuilt-binaries.md',
@@ -54,8 +53,6 @@ void main() {
       '0008-spec-tier-table-describes-capabilities-and-defers-the-verb-list-'
           'to-the-cli.md',
       '0009-templates-style-md-is-the-starter-style-guide-for-a-register.md',
-      '0010-the-gas-city-pack-ships-no-orders-and-register-health-belongs-in-'
-          'each-rigs-ci.md',
     ]);
     final combined = views.map((view) => view.content).join('\n');
     final graph = DecisionGraph(readRegister(_selfHostedRegister));
@@ -63,7 +60,7 @@ void main() {
         .where((entry) => graph.isBinding(entry.slug))
         .toList();
 
-    expect(binding, hasLength(22));
+    expect(binding, hasLength(23));
     for (final entry in binding) {
       expect(combined, contains('<a id="${entry.slug}"></a>'));
     }
@@ -118,7 +115,7 @@ void main() {
     );
     final views = renderViews(graph: graph, template: template);
 
-    expect(views, hasLength(10));
+    expect(views, hasLength(9));
     for (final view in views) {
       expect(view.content, startsWith('<!-- layout sentinel -->'));
     }

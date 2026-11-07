@@ -71,7 +71,10 @@ decisions 0.4.0 (reads spec <= 1, writes spec 1)
 ```
 
 Exit codes are `0` for success, `1` for lint findings or a refused mutation, and `64` for a
-malformed invocation. `decisions lint docs/decisions` is therefore a CI gate on its own. A verb's
+malformed invocation. `decisions lint docs/decisions` is therefore a CI gate on its own.
+`decisions lint --gate` is the same check with one exemption, an unmatched surface marked
+`roster:`; [Gate the register in CI](gc_pack/decisions/README.md#gate-the-register-in-ci) gives
+the job to copy. A verb's
 result — lint's findings included — goes to standard output; a refusal, an error or a usage
 error goes to standard error, so a script can read standard output without filtering it. Help
 you ask for (`--help`, `decisions help <verb>`) is a result: it goes to standard output and exits
