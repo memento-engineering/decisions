@@ -777,6 +777,207 @@ void main() {
     );
     expect(target.readAsBytesSync(), orderedEquals(before));
   });
+
+  group('--max-slug-length', () {
+    final longSlug = '${'a' * 59}-${'b' * 60}';
+    late Directory longSandbox;
+    late String root;
+    late String reg;
+    late File target;
+    late StringBuffer output;
+    late StringBuffer error;
+
+    setUp(() {
+      longSandbox = Directory.systemTemp.createTempSync('decisions-long-');
+      root = p.join(longSandbox.path, 'alpha');
+      reg = p.join(root, 'docs', 'decisions');
+      File(p.join(root, 'README.md'))
+        ..createSync(recursive: true)
+        ..writeAsStringSync('# fixture\n');
+      target = _writeLongEntry(reg, day: 1, slug: longSlug);
+      output = StringBuffer();
+      error = StringBuffer();
+    });
+
+    tearDown(() {
+      if (longSandbox.existsSync()) longSandbox.deleteSync(recursive: true);
+    });
+
+    Future<int> run(List<String> args) => DecisionsCommandRunner(
+      output: output,
+      error: error,
+      registerPaths: () => [reg],
+    ).run(args);
+
+    List<String> force(String verb, String option, String successor) => [
+      verb,
+      longSlug,
+      '--$option',
+      successor,
+      '--register',
+      reg,
+      '--repo-root',
+      root,
+    ];
+
+    test('update writes the long target cache under the flag, and refuses '
+        'without it', () async {
+      _writeLongEntry(
+        reg,
+        day: 2,
+        slug: 'amends-long-rule',
+        updates: [longSlug],
+      );
+      final before = target.readAsBytesSync();
+
+      expect(await run(force('update', 'by', 'amends-long-rule')), 1);
+      expect(error.toString(), contains('invalid `slug`'));
+      expect(output.toString(), isEmpty);
+      expect(target.readAsBytesSync(), orderedEquals(before));
+
+      error.clear();
+      expect(
+        await run([
+          ...force('update', 'by', 'amends-long-rule'),
+          '--max-slug-length',
+          '160',
+        ]),
+        0,
+      );
+      expect(error.toString(), isEmpty);
+      expect(output.toString(), 'update $longSlug: clean\n');
+      expect(parseEntry(target.path, maxSlugLength: 160).cachedUpdatedBy, [
+        'amends-long-rule',
+      ]);
+    });
+
+    test('obsolete writes the long target cache under the flag', () async {
+      _writeLongEntry(
+        reg,
+        day: 2,
+        slug: 'replaces-long-rule',
+        obsoletes: [longSlug],
+      );
+      final before = target.readAsBytesSync();
+
+      expect(await run(force('obsolete', 'by', 'replaces-long-rule')), 1);
+      expect(error.toString(), contains('invalid `slug`'));
+      expect(target.readAsBytesSync(), orderedEquals(before));
+
+      expect(
+        await run([
+          ...force('obsolete', 'by', 'replaces-long-rule'),
+          '--max-slug-length',
+          '160',
+        ]),
+        0,
+      );
+      expect(
+        parseEntry(target.path, maxSlugLength: 160).status,
+        'superseded by replaces-long-rule',
+      );
+    });
+
+    test('vacate writes the long target cache under the flag', () async {
+      _writeLongEntry(reg, day: 2, slug: 'no-rule-governs');
+      final before = target.readAsBytesSync();
+
+      expect(await run(force('vacate', 'successor', 'no-rule-governs')), 1);
+      expect(error.toString(), contains('invalid `slug`'));
+      expect(target.readAsBytesSync(), orderedEquals(before));
+
+      expect(
+        await run([
+          ...force('vacate', 'successor', 'no-rule-governs'),
+          '--max-slug-length',
+          '160',
+        ]),
+        0,
+      );
+      expect(parseEntry(target.path, maxSlugLength: 160).status, 'deprecated');
+    });
+
+    test('a --roster sibling is read under the flag', () async {
+      final base = _writeLongEntry(reg, day: 2, slug: 'base-rule');
+      final longReg = p.join(
+        longSandbox.path,
+        'long_repo',
+        'docs',
+        'decisions',
+      );
+      File(p.join(longSandbox.path, 'long_repo', 'README.md'))
+        ..createSync(recursive: true)
+        ..writeAsStringSync('# fixture\n');
+      _writeLongEntry(
+        longReg,
+        day: 3,
+        slug: longSlug,
+        updates: ['alpha#base-rule'],
+      );
+      final before = base.readAsBytesSync();
+      final args = [
+        'update',
+        'base-rule',
+        '--by',
+        'long_repo#$longSlug',
+        '--register',
+        reg,
+        '--repo-root',
+        root,
+        '--roster',
+        longReg,
+      ];
+
+      expect(await run(args), 1);
+      expect(base.readAsBytesSync(), orderedEquals(before));
+
+      error.clear();
+      expect(await run([...args, '--max-slug-length', '160']), 0);
+      expect(error.toString(), isEmpty);
+      expect(parseEntry(base.path, maxSlugLength: 160).cachedUpdatedBy, [
+        'long_repo#$longSlug',
+      ]);
+    });
+  });
+}
+
+/// Writes an accepted entry governing `README.md`, quoting every reference.
+File _writeLongEntry(
+  String register, {
+  required int day,
+  required String slug,
+  List<String> obsoletes = const [],
+  List<String> updates = const [],
+}) {
+  String list(List<String> values) =>
+      '[${values.map((value) => '"$value"').join(', ')}]';
+  final date = '2026-11-${day.toString().padLeft(2, '0')}';
+  return File(p.join(register, '$date-$slug.md'))
+    ..createSync(recursive: true)
+    ..writeAsStringSync('''
+---
+status: accepted
+date: $date
+decision-makers: ["nico"]
+consulted: []
+informed: []
+register:
+  spec: 1
+  slug: "$slug"
+  surfaces:
+    - "README.md"
+  obsoletes: ${list(obsoletes)}
+  updates: ${list(updates)}
+  obsoleted-by: null
+  updated-by: []
+  bead: null
+  legacy-id: null
+---
+
+# $slug
+
+A fixture decision body.
+''');
 }
 
 ({File alpha, File beta, File gamma}) _writeChainedBacklog(

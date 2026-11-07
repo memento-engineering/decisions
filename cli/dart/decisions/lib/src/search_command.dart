@@ -5,17 +5,24 @@ import 'dart:io';
 import 'package:args/command_runner.dart';
 
 import 'index_command.dart';
+import 'register_union.dart';
 import 'search.dart';
+import 'slug_limit_option.dart';
 
 /// Vends citation-ready lexical precedent search over decision registers.
 final class DecisionSearchCommand extends Command<int> {
   /// Creates the command with lazy register resolution and injectable sinks.
+  ///
+  /// Every register is read under its limit in [slugLimits] unless
+  /// `--max-slug-length` names one for the run.
   DecisionSearchCommand({
     RegisterPathResolver? registerPaths,
     StringSink? output,
     StringSink? error,
     DecisionSearchService service = const DecisionSearchService(),
+    DecisionSlugLimits slugLimits = const DecisionSlugLimits(),
   }) : _registerPaths = registerPaths ?? _defaultRegisterPaths,
+       _slugLimits = slugLimits,
        _output = output ?? stdout,
        _error = error ?? stderr,
        _service = service {
@@ -77,12 +84,14 @@ final class DecisionSearchCommand extends Command<int> {
         valueHelp: 'YYYY-MM-DD',
         help: 'Keep decisions on or before this date.',
       );
+    addMaxSlugLengthOption(argParser);
   }
 
   final RegisterPathResolver _registerPaths;
   final StringSink _output;
   final StringSink _error;
   final DecisionSearchService _service;
+  final DecisionSlugLimits _slugLimits;
 
   @override
   String get name => 'search';
@@ -95,6 +104,7 @@ final class DecisionSearchCommand extends Command<int> {
     final results = argResults!;
     final query = results.rest.join(' ').trim();
     if (query.isEmpty) usageException('a search query is required');
+    final slugLimits = resolveSlugLimits(this, _slugLimits);
 
     final dateFrom = _calendarDate('date-from');
     final dateThrough = _calendarDate('date-through');
@@ -112,6 +122,7 @@ final class DecisionSearchCommand extends Command<int> {
     final result = _service.search(
       query: query,
       registerPaths: registerPaths,
+      slugLimits: slugLimits,
       filters: DecisionSearchFilters(
         statuses: results
             .multiOption('status')

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:decisions/decisions.dart';
@@ -167,6 +168,176 @@ void main() {
       }
     }
   });
+
+  group('--max-slug-length', () {
+    final longSlug = '${'a' * 59}-${'b' * 60}';
+    late Directory sandbox;
+    late String root;
+    late String reg;
+    late StringBuffer output;
+    late StringBuffer error;
+
+    setUp(() {
+      sandbox = Directory.systemTemp.createTempSync('decisions-max-slug-');
+      root = p.join(sandbox.path, 'long_repo');
+      reg = p.join(root, 'docs', 'decisions');
+      File(p.join(root, 'README.md'))
+        ..createSync(recursive: true)
+        ..writeAsStringSync('# fixture\n');
+      _writeLongEntry(reg, longSlug);
+      output = StringBuffer();
+      error = StringBuffer();
+    });
+
+    tearDown(() {
+      if (sandbox.existsSync()) sandbox.deleteSync(recursive: true);
+    });
+
+    Future<int> run(
+      List<String> args, {
+      DecisionSlugLimits slugLimits = const DecisionSlugLimits(),
+    }) => DecisionsCommandRunner(
+      output: output,
+      error: error,
+      registerPaths: () => [reg],
+      slugLimits: slugLimits,
+    ).run(args);
+
+    test(
+      'lint reads the long slug under the flag, and not without it',
+      () async {
+        expect(
+          await run([
+            'lint',
+            reg,
+            '--repo-root',
+            root,
+            '--max-slug-length',
+            '160',
+          ]),
+          0,
+        );
+        expect(output.toString(), contains(': clean'));
+
+        output.clear();
+        expect(await run(['lint', reg, '--repo-root', root]), 1);
+        expect(output.toString(), contains('[entry.schema] invalid `slug`'));
+      },
+    );
+
+    test('index lists the long slug under the flag, and a diagnostic without '
+        'it', () async {
+      expect(await run(['index', '--max-slug-length', '160', reg]), 0);
+      final limited = jsonDecode(output.toString()) as Map<String, Object?>;
+      expect((limited['decisions']! as List).map((d) => (d as Map)['slug']), [
+        longSlug,
+      ]);
+      expect(limited['diagnostics'], isEmpty);
+
+      output.clear();
+      expect(await run(['index', reg]), 0);
+      final unlimited = jsonDecode(output.toString()) as Map<String, Object?>;
+      expect(unlimited['decisions'], isEmpty);
+      expect(unlimited['diagnostics'], hasLength(1));
+      expect(
+        ((unlimited['diagnostics']! as List).single as Map)['message'],
+        'invalid `slug`',
+      );
+    });
+
+    test('search finds the long slug under the flag, and reports it without '
+        'it', () async {
+      expect(await run(['search', '--max-slug-length', '160', 'aaaa']), 0);
+      expect(output.toString(), contains('long_repo#$longSlug'));
+      expect(output.toString(), contains('1 hit(s)'));
+      expect(error.toString(), isEmpty);
+
+      output.clear();
+      expect(await run(['search', 'aaaa']), 0);
+      expect(output.toString(), contains('0 hit(s)'));
+      expect(error.toString(), contains('invalid `slug`'));
+    });
+
+    test('a composed limit reaches lint, and an explicit flag wins', () async {
+      const composed = DecisionSlugLimits(byRegister: {'long_repo': 160});
+      expect(
+        await run(['lint', reg, '--repo-root', root], slugLimits: composed),
+        0,
+      );
+      expect(output.toString(), contains(': clean'));
+
+      output.clear();
+      expect(
+        await run([
+          'lint',
+          reg,
+          '--repo-root',
+          root,
+          '--max-slug-length',
+          '80',
+        ], slugLimits: composed),
+        1,
+      );
+      expect(output.toString(), contains('[entry.schema] invalid `slug`'));
+    });
+
+    for (final value in ['0', 'abc', '-3']) {
+      test('--max-slug-length $value is a usage error', () async {
+        expect(
+          await run([
+            'lint',
+            reg,
+            '--repo-root',
+            root,
+            '--max-slug-length',
+            value,
+          ]),
+          DecisionsCommandRunner.usageExitCode,
+        );
+        expect(
+          error.toString(),
+          contains('--max-slug-length must be a positive integer'),
+        );
+        expect(output.toString(), isEmpty);
+      });
+    }
+  });
+}
+
+/// Writes an accepted entry dated 2026-11-05 governing `README.md`.
+void _writeLongEntry(String register, String slug) {
+  File(p.join(register, '2026-11-05-$slug.md'))
+    ..createSync(recursive: true)
+    ..writeAsStringSync('''
+---
+status: accepted
+date: 2026-11-05
+decision-makers: ["nico"]
+consulted: []
+informed: []
+register:
+  spec: 1
+  slug: "$slug"
+  surfaces:
+    - "README.md"
+  obsoletes: []
+  updates: []
+  obsoleted-by: null
+  updated-by: []
+  bead: null
+  legacy-id: null
+---
+
+# A long rule
+
+## Context and Problem Statement
+
+Fixture.
+
+## Decision Outcome
+
+Fixture.
+''');
 }
 
 File _writeUpdatedEntry(
