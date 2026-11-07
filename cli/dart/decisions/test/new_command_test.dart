@@ -358,4 +358,114 @@ void main() {
     expect(collision, 1);
     expect(again.toString(), contains('already recorded in $path'));
   });
+
+  group('--max-slug-length', () {
+    final longSlug = '${'a' * 59}-${'b' * 60}';
+    late String repoRoot;
+    late String register;
+    late String bodyPath;
+
+    setUp(() {
+      repoRoot = p.join(sandbox.path, 'alpha');
+      register = p.join(repoRoot, 'docs', 'decisions');
+      File(p.join(repoRoot, 'README.md'))
+        ..createSync(recursive: true)
+        ..writeAsStringSync('# fixture\n');
+      bodyPath = (File(
+        p.join(sandbox.path, 'body.md'),
+      )..writeAsStringSync(_body)).path;
+    });
+
+    Future<int> runNew(List<String> extra, {String slug = ''}) =>
+        DecisionsCommandRunner(
+          output: output,
+          error: error,
+          registerPaths: () => [register],
+        ).run([
+          'new',
+          slug.isEmpty ? longSlug : slug,
+          '--title',
+          'A long rule',
+          '--body',
+          bodyPath,
+          '--surface',
+          'README.md',
+          '--decision-maker',
+          'nico',
+          '--date',
+          '2026-11-05',
+          '--register',
+          register,
+          '--repo-root',
+          repoRoot,
+          ...extra,
+        ]);
+
+    test('writes a slug longer than the default under the flag', () async {
+      expect(await runNew(['--max-slug-length', '160']), 0);
+      expect(error.toString(), isEmpty);
+      final path = p.join(register, '2026-11-05-$longSlug.md');
+      expect(output.toString(), startsWith('wrote $path\n'));
+      expect(parseEntry(path, maxSlugLength: 160).slug, longSlug);
+    });
+
+    test('refuses it without the flag, naming the default', () async {
+      expect(await runNew(const []), 1);
+      expect(
+        error.toString(),
+        'error: invalid slug "$longSlug"; use at most 80 characters of '
+        'lowercase kebab-case\n',
+      );
+      expect(output.toString(), isEmpty);
+      expect(Directory(register).existsSync(), isFalse);
+    });
+
+    test('refuses it under a smaller flag, naming that limit', () async {
+      expect(await runNew(['--max-slug-length', '100']), 1);
+      expect(error.toString(), contains('use at most 100 characters'));
+      expect(Directory(register).existsSync(), isFalse);
+    });
+
+    test('carries the flag into each next: line', () async {
+      File(p.join(register, '2026-11-01-base-rule.md'))
+        ..createSync(recursive: true)
+        ..writeAsStringSync('''
+---
+status: accepted
+date: 2026-11-01
+decision-makers: ["nico"]
+consulted: []
+informed: []
+register:
+  spec: 1
+  slug: "base-rule"
+  surfaces:
+    - "README.md"
+  obsoletes: []
+  updates: []
+  obsoleted-by: null
+  updated-by: []
+  bead: null
+  legacy-id: null
+---
+
+# Base rule
+
+$_body''');
+
+      expect(
+        await runNew(['--updates', 'base-rule', '--max-slug-length', '160']),
+        0,
+      );
+      expect(error.toString(), isEmpty);
+      expect(
+        output.toString(),
+        contains(
+          'next: decisions update base-rule --by $longSlug '
+          '--register $register --repo-root $repoRoot '
+          '--max-slug-length 160\n',
+        ),
+      );
+    });
+  });
 }

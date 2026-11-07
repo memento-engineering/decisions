@@ -144,12 +144,16 @@ final class DecisionLintService implements DecisionLinter {
   /// Creates a linter resolving `<repo>#<slug>` citations through [roster].
   ///
   /// The default roster sees no sibling register, so every cross-register
-  /// citation is exempt and single-register linting is unchanged.
+  /// citation is exempt and single-register linting is unchanged. Each file
+  /// is parsed under its register's limit in [slugLimits].
   const DecisionLintService({
     DecisionRoster roster = const DecisionRegisterRoster.empty(),
-  }) : _roster = roster;
+    DecisionSlugLimits slugLimits = const DecisionSlugLimits(),
+  }) : _roster = roster,
+       _slugLimits = slugLimits;
 
   final DecisionRoster _roster;
+  final DecisionSlugLimits _slugLimits;
 
   static const supportedSpec = 1;
   static final _localReference = RegExp(
@@ -191,9 +195,10 @@ final class DecisionLintService implements DecisionLinter {
             .toList()
           ..sort((left, right) => left.path.compareTo(right.path));
 
+    final maxSlugLength = _slugLimits.forRegister(originRegister);
     for (final file in files) {
       try {
-        final entry = parseEntry(file.path);
+        final entry = parseEntry(file.path, maxSlugLength: maxSlugLength);
         entries.add(entry);
         if (entry.status == 'proposed') {
           diagnostics.add(

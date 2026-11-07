@@ -151,11 +151,16 @@ final class DecisionSearchService {
   /// Exactly one input form must be supplied. The trimmed query is split on
   /// whitespace; a decision matches when any term is a case-insensitive
   /// substring of its title, slug, or body, in that field precedence.
+  ///
+  /// [registerPaths] are read under each register's limit in [slugLimits]. A
+  /// supplied [union] was already read under its caller's limits, so
+  /// [slugLimits] does not apply to it.
   DecisionSearchResult search({
     required String query,
     DecisionRegisterUnion? union,
     Iterable<String>? registerPaths,
     DecisionSearchFilters filters = const DecisionSearchFilters(),
+    DecisionSlugLimits slugLimits = const DecisionSlugLimits(),
   }) {
     if (query.trim().isEmpty) {
       throw ArgumentError.value(query, 'query', 'a search query is required');
@@ -167,7 +172,11 @@ final class DecisionSearchService {
     }
 
     final source =
-        union ?? DecisionRegisterUnion.fromRegisterPaths(registerPaths!);
+        union ??
+        DecisionRegisterUnion.fromRegisterPaths(
+          registerPaths!,
+          slugLimits: slugLimits,
+        );
     final terms = query.trim().toLowerCase().split(RegExp(r'\s+'));
     final hits = <DecisionSearchHit>[];
     for (final register in source.registers) {

@@ -8,6 +8,7 @@ import 'index_command.dart';
 import 'lint.dart';
 import 'record.dart';
 import 'register_union.dart';
+import 'slug_limit_option.dart';
 
 /// Reads the whole of standard input, for `--body -`.
 typedef DecisionInputReader = String Function();
@@ -20,7 +21,9 @@ typedef DecisionInputReader = String Function();
 /// usage error.
 final class DecisionNewCommand extends Command<int> {
   /// Creates the command. Without a [recorder], each run builds a
-  /// [DecisionRecordService] over [linter] and the resolved roster.
+  /// [DecisionRecordService] over [linter] and the resolved roster, applying
+  /// [slugLimits] unless `--max-slug-length` names a limit for the run. An
+  /// injected [recorder] keeps the limits it was built with.
   DecisionNewCommand({
     DecisionRecorder? recorder,
     DecisionLinter? linter,
@@ -28,7 +31,9 @@ final class DecisionNewCommand extends Command<int> {
     DecisionInputReader? readInput,
     StringSink? output,
     StringSink? error,
+    DecisionSlugLimits slugLimits = const DecisionSlugLimits(),
   }) : _recorder = recorder,
+       _slugLimits = slugLimits,
        _linter = linter,
        _registerPaths =
            registerPaths ?? (() => const <String>['docs/decisions']),
@@ -93,10 +98,12 @@ final class DecisionNewCommand extends Command<int> {
             'Sibling register for <repo>#<slug> edges; repeatable. Defaults '
             'to the composed register resolver.',
       );
+    addMaxSlugLengthOption(argParser);
   }
 
   final DecisionRecorder? _recorder;
   final DecisionLinter? _linter;
+  final DecisionSlugLimits _slugLimits;
   final RegisterPathResolver _registerPaths;
   final DecisionInputReader _readInput;
   final StringSink _output;
@@ -131,6 +138,7 @@ final class DecisionNewCommand extends Command<int> {
     if (results.rest.length != 1) {
       usageException('Expected exactly one slug.');
     }
+    final slugLimits = resolveSlugLimits(this, _slugLimits);
     final title = results.option('title');
     if (title == null || title.trim().isEmpty) {
       usageException('--title is required.');
@@ -161,7 +169,11 @@ final class DecisionNewCommand extends Command<int> {
 
     final recorder =
         _recorder ??
-        DecisionRecordService(linter: _linter, roster: _resolveRoster());
+        DecisionRecordService(
+          linter: _linter,
+          roster: _resolveRoster(slugLimits),
+          slugLimits: slugLimits,
+        );
     try {
       final result = recorder.record(
         registerPath: results.option('register')!,
@@ -183,8 +195,13 @@ final class DecisionNewCommand extends Command<int> {
       _output
         ..writeln('wrote ${result.path}')
         ..writeln(result.citation);
+      // An explicit limit is carried, so each step runs as printed.
+      final limit = results.option('max-slug-length');
       for (final step in result.nextSteps) {
-        _output.writeln('next: ${step.command}');
+        final command = step.command;
+        _output.writeln(
+          'next: ${limit == null ? command : _withLimit(command, limit)}',
+        );
       }
       return 0;
     } on DecisionRecordException catch (error) {
@@ -193,11 +210,22 @@ final class DecisionNewCommand extends Command<int> {
     }
   }
 
-  DecisionRoster _resolveRoster() {
+  DecisionRoster _resolveRoster(DecisionSlugLimits slugLimits) {
     final explicit = argResults!.multiOption('roster');
     return DecisionRegisterRoster.fromRegisterPaths(
       explicit.isNotEmpty ? explicit : _registerPaths(),
+      slugLimits: slugLimits,
     );
+  }
+
+  /// [command] with `--max-slug-length [limit]` added to its invocation,
+  /// ahead of any `(run in register …)` note.
+  static String _withLimit(String command, String limit) {
+    final flag = '--max-slug-length ${int.parse(limit.trim())}';
+    final note = command.indexOf(' (run in register ');
+    return note < 0
+        ? '$command $flag'
+        : '${command.substring(0, note)} $flag${command.substring(note)}';
   }
 
   /// Reads standard input as UTF-8; invalid bytes throw a [FormatException],

@@ -12,6 +12,7 @@ import 'mutation.dart';
 import 'new_command.dart';
 import 'register_union.dart';
 import 'search_command.dart';
+import 'slug_limit_option.dart';
 import 'version.dart';
 
 /// Composable `decisions` command group.
@@ -23,11 +24,13 @@ final class DecisionsCommand extends Command<int> {
     RegisterPathResolver? registerPaths,
     StringSink? output,
     StringSink? error,
+    DecisionSlugLimits slugLimits = const DecisionSlugLimits(),
   }) {
     _verbs(
       linter: linter,
       mutator: mutator,
       registerPaths: registerPaths,
+      slugLimits: slugLimits,
       output: output,
       error: error,
     ).forEach(addSubcommand);
@@ -53,6 +56,7 @@ final class DecisionsCommandRunner extends CommandRunner<int> {
     RegisterPathResolver? registerPaths,
     StringSink? output,
     StringSink? error,
+    DecisionSlugLimits slugLimits = const DecisionSlugLimits(),
   }) : _output = output ?? stdout,
        _error = error ?? stderr,
        super('decisions', 'Inspect and maintain a decision register.') {
@@ -65,6 +69,7 @@ final class DecisionsCommandRunner extends CommandRunner<int> {
       linter: linter,
       mutator: mutator,
       registerPaths: registerPaths,
+      slugLimits: slugLimits,
       output: _output,
       error: _error,
     ).forEach(addCommand);
@@ -114,6 +119,7 @@ List<Command<int>> _verbs({
   required DecisionLinter? linter,
   required DecisionMutator? mutator,
   required RegisterPathResolver? registerPaths,
+  required DecisionSlugLimits slugLimits,
   required StringSink? output,
   required StringSink? error,
 }) {
@@ -122,23 +128,30 @@ List<Command<int>> _verbs({
   final resolvedRegisterPaths =
       registerPaths ?? () => const <String>['docs/decisions'];
   return [
-    IndexCommand(output: resolvedOutput, registerPaths: resolvedRegisterPaths),
+    IndexCommand(
+      output: resolvedOutput,
+      registerPaths: resolvedRegisterPaths,
+      slugLimits: slugLimits,
+    ),
     DecisionSearchCommand(
       registerPaths: resolvedRegisterPaths,
       output: resolvedOutput,
       error: resolvedError,
+      slugLimits: slugLimits,
     ),
     _LintCommand(
       linter: linter,
       registerPaths: resolvedRegisterPaths,
+      slugLimits: slugLimits,
       output: resolvedOutput,
     ),
-    DoctorCommand(output: resolvedOutput),
+    DoctorCommand(output: resolvedOutput, slugLimits: slugLimits),
     DecisionNewCommand(
       linter: linter,
       registerPaths: resolvedRegisterPaths,
       output: resolvedOutput,
       error: resolvedError,
+      slugLimits: slugLimits,
     ),
     for (final verb in _ForceVerb.values)
       _MutationCommand(
@@ -146,6 +159,7 @@ List<Command<int>> _verbs({
         mutator: mutator,
         linter: linter,
         registerPaths: resolvedRegisterPaths,
+        slugLimits: slugLimits,
         output: resolvedOutput,
         error: resolvedError,
       ),
@@ -159,9 +173,11 @@ final class _LintCommand extends Command<int> {
   _LintCommand({
     required DecisionLinter? linter,
     required RegisterPathResolver registerPaths,
+    required DecisionSlugLimits slugLimits,
     required StringSink output,
   }) : _linter = linter,
        _registerPaths = registerPaths,
+       _slugLimits = slugLimits,
        _output = output {
     argParser
       ..addOption(
@@ -182,10 +198,12 @@ final class _LintCommand extends Command<int> {
             'CI mode: exempt unmatched surfaces marked roster: and fail on '
             'every other finding.',
       );
+    addMaxSlugLengthOption(argParser);
   }
 
   final DecisionLinter? _linter;
   final RegisterPathResolver _registerPaths;
+  final DecisionSlugLimits _slugLimits;
   final StringSink _output;
 
   @override
@@ -200,10 +218,12 @@ final class _LintCommand extends Command<int> {
     if (positional.length != 1) {
       usageException('Expected exactly one register path.');
     }
+    final slugLimits = resolveSlugLimits(this, _slugLimits);
     final linter =
         _linter ??
         DecisionLintService(
-          roster: _resolveRoster(argResults!, _registerPaths),
+          roster: _resolveRoster(argResults!, _registerPaths, slugLimits),
+          slugLimits: slugLimits,
         );
     final linted = linter.lint(
       registerPath: positional.single,
@@ -272,12 +292,14 @@ final class _MutationCommand extends Command<int> {
     required DecisionMutator? mutator,
     required DecisionLinter? linter,
     required RegisterPathResolver registerPaths,
+    required DecisionSlugLimits slugLimits,
     required StringSink output,
     required StringSink error,
   }) : _verb = verb,
        _mutator = mutator,
        _linter = linter,
        _registerPaths = registerPaths,
+       _slugLimits = slugLimits,
        _output = output,
        _error = error {
     argParser
@@ -299,12 +321,14 @@ final class _MutationCommand extends Command<int> {
         help: 'Repository root used for candidate linting.',
       )
       ..addMultiOption('roster', valueHelp: 'register-path', help: _rosterHelp);
+    addMaxSlugLengthOption(argParser);
   }
 
   final _ForceVerb _verb;
   final DecisionMutator? _mutator;
   final DecisionLinter? _linter;
   final RegisterPathResolver _registerPaths;
+  final DecisionSlugLimits _slugLimits;
   final StringSink _output;
   final StringSink _error;
 
@@ -319,6 +343,7 @@ final class _MutationCommand extends Command<int> {
 
   @override
   int run() {
+    final slugLimits = resolveSlugLimits(this, _slugLimits);
     final positional = argResults!.rest;
     if (positional.length != 1) {
       _error.writeln('error: expected exactly one target slug');
@@ -336,7 +361,8 @@ final class _MutationCommand extends Command<int> {
         _mutator ??
         DecisionMutationService(
           linter: _linter,
-          roster: _resolveRoster(argResults!, _registerPaths),
+          roster: _resolveRoster(argResults!, _registerPaths, slugLimits),
+          slugLimits: slugLimits,
         );
     final run = switch (_verb) {
       _ForceVerb.obsolete => mutator.obsolete,
@@ -367,13 +393,16 @@ const _rosterHelp =
 /// The roster a verb resolves cross-register references against.
 ///
 /// Explicit `--roster` paths win; otherwise the composed resolver is read
-/// afresh, so a station sees the registers its roster mounts right now.
+/// afresh, so a station sees the registers its roster mounts right now. Each
+/// sibling is read under its own limit in [slugLimits].
 DecisionRoster _resolveRoster(
   ArgResults results,
   RegisterPathResolver registerPaths,
+  DecisionSlugLimits slugLimits,
 ) {
   final explicit = results.multiOption('roster');
   return DecisionRegisterRoster.fromRegisterPaths(
     explicit.isNotEmpty ? explicit : registerPaths(),
+    slugLimits: slugLimits,
   );
 }

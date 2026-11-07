@@ -19,7 +19,8 @@ register:
   updates:
     - "the-decision-register"
   obsoleted-by: null
-  updated-by: []
+  updated-by:
+    - a-registers-slug-limit-is-a-caller-setting-80-by-default
   bead: "dec-dmq"
   legacy-id: null
 ---

@@ -98,10 +98,18 @@ final class DecisionIndex {
        diagnostics = List<DecisionLintDiagnostic>.unmodifiable(diagnostics);
 
   /// Reads [registerPaths] and resolves their authored graphs into one union.
-  factory DecisionIndex.fromRegisterPaths(Iterable<String> registerPaths) {
+  ///
+  /// Each register is read under its own limit in [slugLimits].
+  factory DecisionIndex.fromRegisterPaths(
+    Iterable<String> registerPaths, {
+    DecisionSlugLimits slugLimits = const DecisionSlugLimits(),
+  }) {
     try {
       return DecisionIndex.fromUnion(
-        DecisionRegisterUnion.fromRegisterPaths(registerPaths),
+        DecisionRegisterUnion.fromRegisterPaths(
+          registerPaths,
+          slugLimits: slugLimits,
+        ),
       );
     } on DecisionRegisterUnionException catch (error) {
       throw DecisionIndexException(error.message);

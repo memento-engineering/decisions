@@ -17,10 +17,17 @@ bool _directoryExists(String path) => Directory(path).existsSync();
 /// `decisions index` or `decisions search` run reads that callback afresh,
 /// selects existing `docs/decisions` directories, and delegates the union to
 /// the agnostic decisions engine.
+///
+/// [slugLimits] supplies each register's slug limit, keyed by the register
+/// name a mounted substation publishes under (the `<repo>` of
+/// `<repo>#<slug>`); a register it does not name applies its fallback,
+/// [defaultMaxSlugLength] by default. An explicit `--max-slug-length` on a run
+/// wins.
 DecisionsCommand buildDecisionsCommand({
   required MountedSubstationRoots mountedSubstationRoots,
   RegisterDirectoryExists? registerExists,
   DecisionLinter? linter,
+  DecisionSlugLimits slugLimits = const DecisionSlugLimits(),
   StringSink? output,
   StringSink? error,
 }) {
@@ -35,6 +42,7 @@ DecisionsCommand buildDecisionsCommand({
   return DecisionsCommand(
     linter: linter,
     registerPaths: registerPaths,
+    slugLimits: slugLimits,
     output: output,
     error: error,
   );

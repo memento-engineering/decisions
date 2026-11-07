@@ -5,6 +5,8 @@ import 'package:path/path.dart' as p;
 
 import 'doctor.dart';
 import 'instructions_command.dart';
+import 'register_union.dart';
+import 'slug_limit_option.dart';
 
 /// `decisions doctor`: whether this binary can work this register.
 ///
@@ -14,11 +16,17 @@ import 'instructions_command.dart';
 /// error.
 final class DoctorCommand extends Command<int> {
   /// Creates the verb over [doctor], writing every finding to [output].
+  ///
+  /// With no [doctor], each run builds a [DecisionDoctorService] that parses
+  /// under [slugLimits], or under `--max-slug-length` when the run names one.
+  /// An injected [doctor] keeps the limits it was built with.
   DoctorCommand({
     required StringSink output,
-    DecisionDoctor doctor = const DecisionDoctorService(),
+    DecisionDoctor? doctor,
+    DecisionSlugLimits slugLimits = const DecisionSlugLimits(),
   }) : _output = output,
-       _doctor = doctor {
+       _doctor = doctor,
+       _slugLimits = slugLimits {
     argParser
       ..addOption(
         'register',
@@ -47,10 +55,12 @@ final class DoctorCommand extends Command<int> {
         negatable: false,
         help: 'Emit the schema-versioned JSON result.',
       );
+    addMaxSlugLengthOption(argParser);
   }
 
   final StringSink _output;
-  final DecisionDoctor _doctor;
+  final DecisionDoctor? _doctor;
+  final DecisionSlugLimits _slugLimits;
 
   @override
   String get name => 'doctor';
@@ -86,7 +96,9 @@ final class DoctorCommand extends Command<int> {
         '--no-register inspects no register; drop --register and --repo-root.',
       );
     }
-    final report = _doctor.examine(
+    final slugLimits = resolveSlugLimits(this, _slugLimits);
+    final doctor = _doctor ?? DecisionDoctorService(slugLimits: slugLimits);
+    final report = doctor.examine(
       registerPath: noRegister
           ? null
           : results.option('register') ??

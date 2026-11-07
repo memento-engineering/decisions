@@ -56,18 +56,23 @@ final class DecisionMutationService implements DecisionMutator {
   ///
   /// The candidate register is checked by [linter] when one is supplied, and
   /// otherwise by a linter over the same [roster], so the mutation and the
-  /// check never disagree about which registers are visible.
+  /// check never disagree about which registers are visible. The register is
+  /// read, and the default linter parses the candidate, under the register's
+  /// limit in [slugLimits].
   const DecisionMutationService({
     DecisionLinter? linter,
     DecisionRoster roster = const DecisionRegisterRoster.empty(),
+    DecisionSlugLimits slugLimits = const DecisionSlugLimits(),
   }) : _linter = linter,
-       _roster = roster;
+       _roster = roster,
+       _slugLimits = slugLimits;
 
   final DecisionLinter? _linter;
   final DecisionRoster _roster;
+  final DecisionSlugLimits _slugLimits;
 
   DecisionLinter get _candidateLinter =>
-      _linter ?? DecisionLintService(roster: _roster);
+      _linter ?? DecisionLintService(roster: _roster, slugLimits: _slugLimits);
 
   static final _frontMatter = RegExp(
     r'^---(\r?\n)(.*?)(\r?\n)---(\r?\n)',
@@ -192,7 +197,12 @@ final class DecisionMutationService implements DecisionMutator {
       final originRegister = decisionOriginRegister(
         p.absolute(p.normalize(registerPath)),
       );
-      final graph = DecisionGraph(readRegister(registerPath));
+      final graph = DecisionGraph(
+        readRegister(
+          registerPath,
+          maxSlugLength: _slugLimits.forRegister(originRegister),
+        ),
+      );
       final targetEntry = graph.entries[target];
       if (targetEntry == null) {
         throw DecisionMutationException('unknown target slug "$target"');

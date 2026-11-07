@@ -15,11 +15,13 @@ export 'package:decisions/decisions.dart'
         DecisionSearchResult,
         DecisionSearchService,
         DecisionSearchStatusFilter,
+        DecisionSlugLimits,
         DecisionsCommand,
         IndexCommand,
         RegisterPathResolver,
         decisionSearchOutputSpec,
         decisionSearchSnippetCap,
+        defaultMaxSlugLength,
         matchesDecisionSurface;
 export 'src/assets/grid_asset_pack.dart';
 export 'src/command.dart';

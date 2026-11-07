@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:decisions/decisions.dart';
@@ -143,5 +144,29 @@ void main() {
     expect(code, 0);
     expect(output.toString(), contains('# Register style guide: $style\n'));
     expect(output.toString(), endsWith(File(style).readAsStringSync()));
+  });
+
+  test('SPEC.md states the slug limit and its default', () {
+    final spec = File(
+      p.join(_repoRoot, 'SPEC.md'),
+    ).readAsStringSync().replaceAll(RegExp(r'\s+'), ' ');
+    expect(spec, contains('slug limit, 80 characters'));
+    expect(spec, contains('unless the register sets another'));
+  });
+
+  test('the entry schema leaves the slug length to the slug limit', () {
+    final schema =
+        jsonDecode(
+              File(
+                p.join(_repoRoot, 'schema', 'decision.schema.json'),
+              ).readAsStringSync(),
+            )
+            as Map<String, Object?>;
+    final slug =
+        (((schema['properties']! as Map)['register']! as Map)['properties']!
+                as Map)['slug']!
+            as Map;
+    expect(slug.containsKey('maxLength'), isFalse);
+    expect(slug['description'], contains('slug limit'));
   });
 }

@@ -532,6 +532,43 @@ void main() {
       expect(error.toString(), contains('--no-register'));
     });
   });
+
+  group('--max-slug-length', () {
+    final longSlug = '${'a' * 59}-${'b' * 60}';
+
+    setUp(() => entry(longSlug));
+
+    Future<(int, String, String)> doctor(List<String> extra) async {
+      final output = StringBuffer();
+      final error = StringBuffer();
+      final code = await DecisionsCommandRunner(
+        output: output,
+        error: error,
+      ).run(['doctor', '--register', register, ...extra]);
+      return (code, '$output', '$error');
+    }
+
+    test('every entry parses under the flag', () async {
+      final (code, output, error) = await doctor(['--max-slug-length', '160']);
+      expect(error, isEmpty);
+      expect(output, contains('every entry parses'));
+      expect(output, isNot(contains('invalid `slug`')));
+      expect(code, 0);
+    });
+
+    test('the long slug fails to parse without it', () async {
+      final (code, output, _) = await doctor(const []);
+      expect(output, contains('invalid `slug`'));
+      expect(code, 2);
+    });
+
+    test('a malformed value is a usage error', () async {
+      final (code, output, error) = await doctor(['--max-slug-length', 'abc']);
+      expect(code, DecisionsCommandRunner.usageExitCode);
+      expect(output, isEmpty);
+      expect(error, contains('--max-slug-length must be a positive integer'));
+    });
+  });
 }
 
 /// A `decisions` group carrying only [verb], to check invocation naming.
