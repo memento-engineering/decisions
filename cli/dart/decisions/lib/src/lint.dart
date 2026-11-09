@@ -89,6 +89,19 @@ bool isRosterWideSurfaceUnmatched(DecisionLintDiagnostic diagnostic) =>
     diagnostic.ruleId == DecisionLintRules.surfaceUnmatched &&
     diagnostic.message.startsWith('surface "roster:');
 
+/// Whether [entry]'s surfaces must resolve: whether it is in force.
+///
+/// Lint's `surface.unmatched` rule applies only to an entry in force. An entry
+/// whose status is `superseded by <slug>`, `deprecated` or `rejected` may name
+/// surfaces that match nothing; an accepted entry, one another entry updates
+/// included, must resolve them. Every lint caller (plain lint, `--gate`, and
+/// the candidate lint of the force verbs and `decisions new`) reaches this
+/// test through [DecisionLintService.lint].
+bool surfacesMustResolve(DecisionEntry entry) =>
+    !(entry.status == 'deprecated' ||
+        entry.status == 'rejected' ||
+        entry.status.startsWith('superseded by '));
+
 /// A lint result split for CI by [isRosterWideSurfaceUnmatched].
 ///
 /// `decisions lint --gate` reads [result], which keeps every diagnostic the
@@ -220,16 +233,18 @@ final class DecisionLintService implements DecisionLinter {
             ),
           );
         }
-        for (final surface in entry.surfaces) {
-          if (!surfaceMatches(surface, root)) {
-            diagnostics.add(
-              _diagnostic(
-                entry,
-                root,
-                DecisionLintRules.surfaceUnmatched,
-                'surface "$surface" matched no filesystem entry',
-              ),
-            );
+        if (surfacesMustResolve(entry)) {
+          for (final surface in entry.surfaces) {
+            if (!surfaceMatches(surface, root)) {
+              diagnostics.add(
+                _diagnostic(
+                  entry,
+                  root,
+                  DecisionLintRules.surfaceUnmatched,
+                  'surface "$surface" matched no filesystem entry',
+                ),
+              );
+            }
           }
         }
       } on DecisionParseException catch (error) {
@@ -464,7 +479,8 @@ final class DecisionLintService implements DecisionLinter {
   /// Whether surface glob [pattern] matches a filesystem entry under
   /// [repoRoot], or under an ancestor whose name is the pattern's first
   /// segment — the one test lint's `surface.unmatched` rule and
-  /// `decisions resurface` both apply.
+  /// `decisions resurface` both apply. The lint rule applies it only to an
+  /// entry in force ([surfacesMustResolve]).
   static bool surfaceMatches(String pattern, String repoRoot) {
     for (final root in _surfaceRoots(pattern, repoRoot)) {
       try {

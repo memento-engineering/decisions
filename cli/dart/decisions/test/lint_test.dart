@@ -169,6 +169,113 @@ void main() {
     }
   });
 
+  group('surface.unmatched applies only to an entry in force', () {
+    late Directory sandbox;
+    late Directory register;
+
+    setUp(() {
+      sandbox = Directory.systemTemp.createTempSync('decision-lint-in-force-');
+      register = Directory(p.join(sandbox.path, 'docs', 'decisions'))
+        ..createSync(recursive: true);
+    });
+
+    tearDown(() {
+      if (sandbox.existsSync()) sandbox.deleteSync(recursive: true);
+    });
+
+    test('an entry out of force may name surfaces that match nothing', () {
+      _writeUpdatedEntry(
+        register,
+        day: 1,
+        slug: 'old-rule',
+        status: 'superseded by replacement',
+        obsoletedBy: 'replacement',
+        surfaces: const ['no-such-dir/**'],
+      );
+      _writeUpdatedEntry(
+        register,
+        day: 2,
+        slug: 'replacement',
+        obsoletes: const ['old-rule'],
+      );
+      _writeUpdatedEntry(
+        register,
+        day: 3,
+        slug: 'vacated-rule',
+        status: 'deprecated',
+        surfaces: const ['no-such-dir/**'],
+      );
+      _writeUpdatedEntry(
+        register,
+        day: 4,
+        slug: 'rejected-rule',
+        status: 'rejected',
+        surfaces: const ['no-such-dir/**'],
+      );
+
+      final result = service.lint(registerPath: register.path, repoRoot: '.');
+
+      expect(result.isClean, isTrue, reason: '${result.toJson()}');
+      expect(result.diagnostics, isEmpty);
+    });
+
+    test('an entry in force must still resolve its surfaces', () {
+      _writeUpdatedEntry(
+        register,
+        day: 1,
+        slug: 'base-rule',
+        updatedBy: const ['amendment'],
+        surfaces: const ['no-such-dir/**'],
+      );
+      _writeUpdatedEntry(
+        register,
+        day: 2,
+        slug: 'amendment',
+        updates: const ['base-rule'],
+      );
+      _writeUpdatedEntry(
+        register,
+        day: 3,
+        slug: 'plain-rule',
+        surfaces: const ['no-such-dir/**'],
+      );
+      _writeUpdatedEntry(
+        register,
+        day: 4,
+        slug: 'proposed-rule',
+        status: 'proposed',
+        surfaces: const ['no-such-dir/**'],
+      );
+
+      final result = service.lint(registerPath: register.path, repoRoot: '.');
+      final unmatched = result.diagnostics
+          .where((item) => item.ruleId == DecisionLintRules.surfaceUnmatched)
+          .toList();
+
+      expect(
+        unmatched.map((item) => p.basename(item.file)),
+        unorderedEquals(<String>[
+          '2026-01-01-base-rule.md',
+          '2026-01-03-plain-rule.md',
+          '2026-01-04-proposed-rule.md',
+        ]),
+        reason: '${result.toJson()}',
+      );
+      for (final item in unmatched) {
+        expect(
+          item.message,
+          'surface "no-such-dir/**" matched no filesystem entry',
+        );
+      }
+      expect(
+        result.diagnostics
+            .where((item) => item.ruleId == DecisionLintRules.statusProposed)
+            .map((item) => p.basename(item.file)),
+        ['2026-01-04-proposed-rule.md'],
+      );
+    });
+  });
+
   group('--max-slug-length', () {
     final longSlug = '${'a' * 59}-${'b' * 60}';
     late Directory sandbox;
@@ -347,6 +454,9 @@ File _writeUpdatedEntry(
   String status = 'accepted',
   List<String> updates = const [],
   List<String> updatedBy = const [],
+  List<String> surfaces = const ['test/**'],
+  List<String> obsoletes = const [],
+  String? obsoletedBy,
 }) {
   final date = '2026-01-${day.toString().padLeft(2, '0')}';
   final file = File(p.join(register.path, '$date-$slug.md'));
@@ -358,10 +468,10 @@ decision-makers: [fixture]
 register:
   spec: 1
   slug: $slug
-  surfaces: ["test/**"]
-  obsoletes: []
+  surfaces: [${surfaces.map((surface) => '"$surface"').join(', ')}]
+  obsoletes: [${obsoletes.join(', ')}]
   updates: [${updates.join(', ')}]
-  obsoleted-by: null
+  obsoleted-by: ${obsoletedBy ?? 'null'}
   updated-by: [${updatedBy.join(', ')}]
   bead: null
   legacy-id: null
