@@ -52,20 +52,24 @@ void _writeEntry(
   required String slug,
   List<String> surfaces = const ['docs/decisions/**'],
   List<String> updates = const [],
+  String status = 'accepted',
+  List<String> obsoletes = const [],
+  String? obsoletedBy,
+  List<String> updatedBy = const [],
 }) {
   File(p.join(register.path, file)).writeAsStringSync('''
 ---
-status: accepted
+status: $status
 date: ${file.substring(0, 10)}
 decision-makers: [fixture]
 register:
   spec: 1
   slug: $slug
   surfaces: ${jsonEncode(surfaces)}
-  obsoletes: []
+  obsoletes: ${jsonEncode(obsoletes)}
   updates: ${jsonEncode(updates)}
-  obsoleted-by: null
-  updated-by: []
+  obsoleted-by: ${obsoletedBy ?? 'null'}
+  updated-by: ${jsonEncode(updatedBy)}
   bead: null
   legacy-id: null
 ---
@@ -394,5 +398,102 @@ void main() {
       expect(grouped.code, standalone.code);
       expect(grouped.out, standalone.out);
     });
+  });
+
+  group('AC-6 an entry out of force', () {
+    final outOfForce = <String, void Function()>{
+      'superseded': () {
+        _writeEntry(
+          register,
+          '2026-01-01-target.md',
+          slug: 'target',
+          status: 'superseded by replacement',
+          obsoletedBy: 'replacement',
+          surfaces: ['gone/**'],
+        );
+        _writeEntry(
+          register,
+          '2026-01-02-replacement.md',
+          slug: 'replacement',
+          obsoletes: ['target'],
+        );
+      },
+      'deprecated': () => _writeEntry(
+        register,
+        '2026-01-01-target.md',
+        slug: 'target',
+        status: 'deprecated',
+        surfaces: ['gone/**'],
+      ),
+      'rejected': () => _writeEntry(
+        register,
+        '2026-01-01-target.md',
+        slug: 'target',
+        status: 'rejected',
+        surfaces: ['gone/**'],
+      ),
+    };
+
+    for (final MapEntry(key: status, value: write) in outOfForce.entries) {
+      test('a $status entry may name surfaces that match nothing', () async {
+        write();
+
+        final plain = await _standalone(gateArgs(gate: false));
+        final gated = await _standalone(gateArgs());
+
+        expect(plain.code, 0, reason: plain.out);
+        expect(plain.out, 'docs/decisions: clean\n');
+        expect(gated.code, 0, reason: gated.out);
+        expect(gated.out, 'docs/decisions: clean\n');
+      });
+    }
+
+    test(
+      'an out-of-force roster surface is not checked, so not exempted',
+      () async {
+        _writeEntry(
+          register,
+          '2026-01-01-roster-rule.md',
+          slug: 'roster-rule',
+          status: 'deprecated',
+          surfaces: ['roster:CLAUDE.md'],
+        );
+
+        final run = await _standalone(gateArgs());
+
+        expect(run.code, 0);
+        expect(run.out, 'docs/decisions: clean\n');
+        expect(run.err, isEmpty);
+      },
+    );
+
+    test(
+      'an accepted, updated entry must still resolve its surfaces',
+      () async {
+        _writeEntry(
+          register,
+          '2026-01-01-target.md',
+          slug: 'target',
+          updatedBy: ['amendment'],
+          surfaces: ['gone/**'],
+        );
+        _writeEntry(
+          register,
+          '2026-01-02-amendment.md',
+          slug: 'amendment',
+          updates: ['target'],
+        );
+
+        final run = await _standalone(gateArgs());
+
+        expect(run.code, 1);
+        expect(
+          run.out,
+          contains(
+            '[surface.unmatched] surface "gone/**" matched no filesystem entry',
+          ),
+        );
+      },
+    );
   });
 }

@@ -167,6 +167,33 @@ void main() {
     expect(spec, contains('unless the register sets another'));
   });
 
+  test('SPEC.md requires surfaces to resolve only on an entry in force, '
+      'at spec 1', () {
+    final spec = File(p.join(_repoRoot, 'SPEC.md')).readAsStringSync();
+    final start = spec.indexOf('\n## Linting\n');
+    expect(start, isNot(-1));
+    final end = spec.indexOf('\n## ', start + 1);
+    final linting = spec
+        .substring(start, end == -1 ? spec.length : end)
+        .replaceAll(RegExp(r'\s+'), ' ');
+
+    expect(
+      linting,
+      contains('Surfaces must resolve only on an entry in force'),
+    );
+    expect(linting, contains('superseded by'));
+    expect(linting, contains('`deprecated`'));
+    expect(linting, contains('`rejected`'));
+    expect(linting, contains('obsoletes that entry rather than updating it'));
+    expect(spec.split('\n').first, '# The `decisions` format — spec 1');
+
+    final entries = readRegister(p.join(_repoRoot, 'docs', 'decisions'));
+    expect(entries, isNotEmpty);
+    for (final entry in entries) {
+      expect(entry.spec, 1, reason: entry.file);
+    }
+  });
+
   test('the entry schema leaves the slug length to the slug limit', () {
     final schema =
         jsonDecode(

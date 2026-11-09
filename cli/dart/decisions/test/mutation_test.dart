@@ -620,6 +620,87 @@ void main() {
     expect(successor.readAsBytesSync(), orderedEquals(successorBefore));
   });
 
+  test('obsolete takes a target whose surfaces match nothing out of force', () {
+    final target = _writeEntry(
+      register,
+      day: 1,
+      slug: 'old-rule',
+      surface: 'missing/**',
+    );
+    _writeEntry(
+      register,
+      day: 2,
+      slug: 'replacement',
+      obsoletes: const ['old-rule'],
+    );
+
+    service.obsolete(
+      registerPath: register.path,
+      repoRoot: sandbox.path,
+      target: 'old-rule',
+      successor: 'replacement',
+    );
+
+    final changed = parseEntry(target.path);
+    expect(changed.status, 'superseded by replacement');
+    expect(changed.cachedObsoletedBy, 'replacement');
+    _expectClean(linter, register);
+  });
+
+  test('vacate takes a target whose surfaces match nothing out of force', () {
+    final target = _writeEntry(
+      register,
+      day: 1,
+      slug: 'withdrawn-rule',
+      surface: 'missing/**',
+    );
+    _writeEntry(register, day: 2, slug: 'no-rule-governs');
+
+    service.vacate(
+      registerPath: register.path,
+      repoRoot: sandbox.path,
+      target: 'withdrawn-rule',
+      successor: 'no-rule-governs',
+    );
+
+    expect(parseEntry(target.path).status, 'deprecated');
+    _expectClean(linter, register);
+  });
+
+  test('obsolete still refuses a successor in force whose surfaces match '
+      'nothing', () {
+    final target = _writeEntry(register, day: 1, slug: 'old-rule');
+    final successor = _writeEntry(
+      register,
+      day: 2,
+      slug: 'replacement',
+      surface: 'missing/**',
+      obsoletes: const ['old-rule'],
+    );
+    final targetBefore = target.readAsBytesSync();
+    final successorBefore = successor.readAsBytesSync();
+
+    expect(
+      () => service.obsolete(
+        registerPath: register.path,
+        repoRoot: sandbox.path,
+        target: 'old-rule',
+        successor: 'replacement',
+      ),
+      throwsA(
+        isA<DecisionMutationException>().having(
+          (error) => error.message,
+          'message',
+          'candidate register is not clean: '
+              'docs/decisions/2026-01-02-replacement.md '
+              '[surface.unmatched]',
+        ),
+      ),
+    );
+    expect(target.readAsBytesSync(), orderedEquals(targetBefore));
+    expect(successor.readAsBytesSync(), orderedEquals(successorBefore));
+  });
+
   test('update ignores diagnostics on unrelated entries', () {
     final target = _writeEntry(register, day: 1, slug: 'base-rule');
     final successor = _writeEntry(
