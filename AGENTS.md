@@ -131,8 +131,8 @@ dart run lunar:lunar decisions lint docs/decisions --repo-root .
 - **The format must degrade to grep.** Before adding anything the CLI must parse, ask whether a
   repo with no Dart and no station can still read the register. If not, it does not go in the
   format — it goes in the tooling.
-- **Surfaces must resolve from this checkout.** `decisions lint` fails an entry whose `surfaces`
-  match nothing. A decision that governs *other* repos belongs in the org register
+- **Surfaces must resolve from this checkout.** `decisions lint` fails an entry in force whose
+  `surfaces` match nothing (a superseded, vacated or rejected entry's may). A decision that governs *other* repos belongs in the org register
   (`memento-engineering`), not here — that is what
   `memento-engineering#org-decisions-live-in-the-org-register` settled.
 

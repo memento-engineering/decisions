@@ -222,7 +222,16 @@ breaking spec bump ships its migration tool in the same release.
 [`madrlint`](https://github.com/adr/madrlint) validates MADR *shape*, one file at a time. It is
 worth running and it is not sufficient: our layer is the graph. `decisions lint` checks required
 `register` keys, edge integrity and reciprocity, force-cache consistency against the graph, slug
-uniqueness, that `surfaces` globs resolve, and that cross-repo citations resolve across the roster.
+uniqueness, that the `surfaces` globs of every entry in force resolve, and that cross-repo
+citations resolve across the roster.
+
+**Surfaces must resolve only on an entry in force.** An entry whose `status` is `superseded by …`,
+`deprecated` or `rejected` may name surfaces that match nothing: the files it governed may be gone,
+and its surfaces are never edited to make lint pass. An entry that another entry only updates stays
+in force, so its surfaces must still resolve: a successor that removes a surface an earlier entry
+governs obsoletes that entry rather than updating it. Files that moved are re-pointed with
+`decisions resurface`. `decisions obsolete`, `update`, `vacate` and `new` lint their candidates by
+the same rule.
 
 The roster comes from repeatable `--roster <register-path>` options, and otherwise from whatever
 register resolver the caller composed — the live mounted roster at tier 2, and the register in the
