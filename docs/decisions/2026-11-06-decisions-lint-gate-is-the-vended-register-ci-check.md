@@ -19,7 +19,8 @@ register:
     - "the-decisions-cli-ships-as-prebuilt-binaries"
     - "the-gas-city-pack-ships-no-orders-and-register-health-belongs-in-each-rigs-ci"
   obsoleted-by: null
-  updated-by: []
+  updated-by:
+    - a-surface-must-resolve-only-on-an-entry-in-force
   bead: "dec-6x7"
   legacy-id: null
 ---
