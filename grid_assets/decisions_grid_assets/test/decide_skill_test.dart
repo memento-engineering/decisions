@@ -59,7 +59,7 @@ void main() {
 
   test('the body is judgement only, short enough to read whole', () {
     final lines = _body.split('\n').where((line) => line.trim().isNotEmpty);
-    expect(lines.length, lessThanOrEqualTo(76));
+    expect(lines.length, lessThanOrEqualTo(80));
     // The mechanics `decisions new` owns are no longer transcribed as shell.
     for (final mechanic in [
       'rg -n',
@@ -139,6 +139,26 @@ void main() {
     ]) {
       expect(_prose, contains(cue), reason: cue);
     }
+  });
+
+  test('a decision that governs work not yet done names its surfaces from its '
+      'outcome', () {
+    for (final cue in [
+      'When that evidence lists nothing, or only the new entry',
+      'the decision governs work not yet done',
+      'empty evidence is not an empty answer',
+      '`## Decision Outcome` will govern, by the same rules, each resolving '
+          'in this checkout',
+      'named by its nearest existing parent, as a deleted path is',
+      'Never fall back to the entry itself unless the decision is about the '
+          'register.',
+    ]) {
+      expect(_prose, contains(cue), reason: cue);
+    }
+    expect(
+      _prose.indexOf('Every surface must resolve in this checkout.'),
+      lessThan(_prose.indexOf('When that evidence lists nothing')),
+    );
   });
 
   test("honours the register's STYLE.md", () {
