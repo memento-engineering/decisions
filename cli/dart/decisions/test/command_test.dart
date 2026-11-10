@@ -67,6 +67,25 @@ final class FakeDecisionMutator implements DecisionMutator {
 }
 
 void main() {
+  test('index --json is declared as lint --json', () {
+    final commands = DecisionsCommandRunner(
+      output: StringBuffer(),
+      error: StringBuffer(),
+    ).commands;
+    final index = commands['index']!.argParser.options;
+    final lint = commands['lint']!.argParser.options['json']!;
+    final json = index['json']!;
+
+    expect(json.name, lint.name);
+    expect(json.negatable, lint.negatable);
+    expect(json.negatable, isFalse);
+    expect(json.abbr, lint.abbr);
+    expect(json.abbr, isNull);
+    expect(json.help, lint.help);
+    expect(json.help, 'Emit the schema-versioned JSON result.');
+    expect(index.containsKey('human'), isFalse);
+  });
+
   test(
     'decisions command installs index and search with one lazy resolver',
     () async {
