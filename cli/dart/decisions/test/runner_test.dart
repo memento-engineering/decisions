@@ -6,6 +6,8 @@ import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 import 'package:yaml/yaml.dart';
 
+const _selfHostedRegister = '../../../docs/decisions';
+
 void main() {
   test('the runner exposes every grouped verb at top level', () {
     final grouped = DecisionsCommand(output: StringBuffer());
@@ -41,7 +43,7 @@ void main() {
   });
 
   for (final args in [
-    ['prime'],
+    ['prime', '--register', _selfHostedRegister],
     ['guide'],
     ['guide', 'ratify'],
     ['doctor', '--repo-root', '../../..'],
@@ -59,6 +61,20 @@ void main() {
         standaloneOutput.toString(),
         groupedOutput.toString().replaceAll('decisions decisions', 'decisions'),
       );
+      if (args.first == 'prime') {
+        for (final output in [
+          groupedOutput.toString(),
+          standaloneOutput.toString(),
+        ]) {
+          expect(output, contains('Register: $_selfHostedRegister\n'));
+          expect(
+            output,
+            contains(
+              'Style guide: ${p.join(_selfHostedRegister, 'STYLE.md')}. Read it',
+            ),
+          );
+        }
+      }
     });
   }
 
