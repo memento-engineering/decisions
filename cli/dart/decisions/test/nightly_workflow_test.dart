@@ -213,6 +213,47 @@ void main() {
     }
   });
 
+  group('ci.yaml revives the nightly schedule', () {
+    late _Json ci;
+    late _Json jobs;
+
+    setUp(() {
+      ci = _load(_ciPath);
+      jobs = ci['jobs'] as _Json;
+    });
+
+    test('from a job that runs only on a push to main', () {
+      final push = (ci['on'] as _Json)['push'] as _Json;
+      expect(push['branches'], contains('main'));
+      final revive = jobs['revive_nightly'] as _Json;
+      expect(
+        revive['if'],
+        "github.event_name == 'push' && github.ref == 'refs/heads/main'",
+      );
+      expect(revive['permissions'], {'actions': 'write'});
+    });
+
+    test('by running gh workflow enable nightly.yaml with a token', () {
+      final steps = _steps(ci, 'revive_nightly');
+      final enable = steps.singleWhere(
+        (step) => ((step['run'] as String?) ?? '').contains(
+          'gh workflow enable nightly.yaml',
+        ),
+      );
+      expect((enable['env'] as _Json).containsKey('GH_TOKEN'), isTrue);
+    });
+
+    test('and no other job holds actions: write', () {
+      final writers = [
+        for (final MapEntry(:key, :value) in jobs.entries)
+          if (((value as _Json)['permissions'] as _Json?)?['actions'] ==
+              'write')
+            key,
+      ];
+      expect(writers, ['revive_nightly']);
+    });
+  });
+
   group('the nightly workflow', () {
     late Map<String, Object?> nightly;
 

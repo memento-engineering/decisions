@@ -69,3 +69,18 @@ jobs:
           GC_BIN="$RUNNER_TEMP/bin/gc" BD_BIN="$RUNNER_TEMP/bin/bd" \
             DOLT_BIN="$RUNNER_TEMP/bin/dolt" DECISIONS_BIN="$RUNNER_TEMP/bin/decisions" \
             gc_pack/e2e.sh
+
+  # GitHub disables a public repository's schedule after 60 days without
+  # activity. This job re-enables nightly.yaml on every landing, so any push to
+  # main revives it. It is the only job here that holds actions: write, and it
+  # runs no checkout and no downloaded binary.
+  revive_nightly:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: write
+    steps:
+      - name: Re-enable the nightly schedule
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow enable nightly.yaml --repo "$GITHUB_REPOSITORY"
