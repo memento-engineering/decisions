@@ -138,6 +138,7 @@ void main() {
         'entry',
       );
       beads.remove('a-surface-must-resolve-only-on-an-entry-in-force');
+      beads.remove('index-surface-refuses-a-register-the-index-does-not-carry');
       expect(beads.values, everyElement(isNull));
       expect(entries.map((entry) => entry.legacyId), everyElement(isNull));
     });
