@@ -16,6 +16,9 @@ const _toolsUses = './.github/actions/gc-sandbox-tools';
 
 const _nightlyPath = '../../../.github/workflows/nightly.yaml';
 const _agentsPath = '../../../AGENTS.md';
+const _entryPath =
+    '../../../docs/decisions/'
+    '2026-11-09-a-nightly-run-checks-the-gas-city-pack-against-gc-latest.md';
 
 /// A parsed YAML or JSON mapping.
 typedef _Json = Map<Object?, Object?>;
@@ -259,6 +262,27 @@ void main() {
     final agents = File(_agentsPath).readAsStringSync();
     expect(agents, contains('nightly.yaml'));
     expect(agents, contains('revive_nightly'));
+  });
+
+  test('the register records the nightly and governs its surfaces', () {
+    final entry = File(_entryPath);
+    expect(entry.existsSync(), isTrue, reason: _entryPath);
+    final text = entry.readAsStringSync();
+    final frontMatter = loadYaml(text.split('\n---\n').first.substring(4));
+    final register = (frontMatter as _Json)['register'] as _Json;
+    expect(
+      register['slug'],
+      'a-nightly-run-checks-the-gas-city-pack-against-gc-latest',
+    );
+    expect(
+      register['surfaces'],
+      containsAll([
+        '.github/workflows/nightly.yaml',
+        '.github/actions/gc-sandbox-tools/action.yml',
+        '.github/workflows/ci.yaml',
+      ]),
+    );
+    expect(text, contains('\n## Decision Outcome\n'));
   });
 
   group('the nightly workflow', () {
