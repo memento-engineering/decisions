@@ -153,14 +153,14 @@ docket_date="$(date +%F)"
 docket_scratch="$(mktemp -d)"
 
 decisions lint "$docket_register" --repo-root . --json > "$docket_scratch/lint.json"
-decisions index > "$docket_scratch/index.json"
+decisions index --json > "$docket_scratch/index.json"
 ```
 
-`decisions index` with NO positional register argument is load-bearing. Under a
+`decisions index --json` with NO positional register argument is load-bearing. Under a
 station the composed command resolves the live mounted-substation roster and
 returns the union, so a per-register docket still sees cross-repo citations and
 unresolved edges. Without a station, pass the register directories you have:
-`decisions index docs/decisions`.
+`decisions index --json docs/decisions`.
 
 Parse the JSON of both. Never scrape the prose form of either command.
 

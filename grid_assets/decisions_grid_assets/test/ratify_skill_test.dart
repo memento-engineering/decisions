@@ -115,7 +115,7 @@ void main() {
   test('reads the two commands and parses their JSON, never their prose', () {
     _expectInOrder([
       r'decisions lint "$docket_register" --repo-root . --json',
-      r'decisions index > "$docket_scratch/index.json"',
+      r'decisions index --json > "$docket_scratch/index.json"',
       'Never scrape the prose form of either command.',
       'Only decisions whose `originRegister` is the register under docket may '
           'be RULED',
