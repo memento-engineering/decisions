@@ -394,9 +394,7 @@ bool matchesDecisionSurface({
   required Iterable<String> surfaces,
   required String rosterRelativePath,
 }) {
-  final normalized = p.posix.normalize(
-    rosterRelativePath.replaceAll('\\', '/'),
-  );
+  final normalized = _normalizeSurfaceQuery(rosterRelativePath);
   return surfaces.any((surface) {
     final normalizedSurface = surface.replaceAll('\\', '/');
     final pattern = normalizedSurface.startsWith('*/')
@@ -405,6 +403,26 @@ bool matchesDecisionSurface({
     return Glob(pattern, context: p.posix).matches(normalized);
   });
 }
+
+/// The register a roster-qualified surface query names: the first path
+/// segment of [rosterRelativePath] once normalised as [matchesDecisionSurface]
+/// normalises it.
+///
+/// The segment is taken literally. A query with no `/` is its own segment
+/// (`README.md`), an absolute query gives the empty segment, and a wildcard
+/// segment (`*`) is returned as written: a query names a concrete path, so
+/// none of these names a register.
+String decisionSurfaceRegister(String rosterRelativePath) {
+  final normalized = _normalizeSurfaceQuery(rosterRelativePath);
+  final separator = normalized.indexOf('/');
+  return separator < 0 ? normalized : normalized.substring(0, separator);
+}
+
+/// Normalises a surface query: backslashes become `/`, then posix
+/// normalisation. Shared by the matcher and the register reader so the two
+/// can never read a query differently.
+String _normalizeSurfaceQuery(String rosterRelativePath) =>
+    p.posix.normalize(rosterRelativePath.replaceAll('\\', '/'));
 
 /// Thrown when register inputs cannot form a deterministic shared union.
 class DecisionRegisterUnionException implements Exception {

@@ -350,4 +350,26 @@ register:
       expect(result.isClean, isTrue, reason: '${result.toJson()}');
     });
   });
+
+  group('decisionSurfaceRegister', () {
+    test('names the first segment of a qualified query', () {
+      expect(decisionSurfaceRegister('source_repo/a/b.dart'), 'source_repo');
+    });
+
+    test('normalises a leading ./ as surface matching does', () {
+      expect(decisionSurfaceRegister('./source_repo/a'), 'source_repo');
+    });
+
+    test('reads a backslash as a slash', () {
+      expect(decisionSurfaceRegister('source_repo\\a'), 'source_repo');
+    });
+
+    test('takes an unqualified query whole', () {
+      expect(decisionSurfaceRegister('README.md'), 'README.md');
+    });
+
+    test('gives an absolute query the empty segment', () {
+      expect(decisionSurfaceRegister('/x'), '');
+    });
+  });
 }
