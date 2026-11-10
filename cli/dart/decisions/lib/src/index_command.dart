@@ -31,7 +31,10 @@ final class IndexCommand extends Command<int> {
         'surface',
         abbr: 's',
         valueHelp: 'register/path',
-        help: 'Keep only decisions governing this roster-qualified path.',
+        help:
+            'Keep only decisions governing this roster-qualified path '
+            '(register/path). A register the index does not carry is a '
+            'usage error (exit 64).',
       )
       ..addFlag(
         'human',
@@ -65,11 +68,31 @@ final class IndexCommand extends Command<int> {
     }
 
     final surface = results.option('surface');
-    final union = DecisionIndex.fromRegisterPaths(
-      registerPaths,
-      slugLimits: slugLimits,
-    );
-    final index = surface == null ? union : union.governing(surface);
+    final DecisionRegisterUnion union;
+    try {
+      union = DecisionRegisterUnion.fromRegisterPaths(
+        registerPaths,
+        slugLimits: slugLimits,
+      );
+    } on DecisionRegisterUnionException catch (error) {
+      throw DecisionIndexException(error.message);
+    }
+    if (surface != null) {
+      final register = decisionSurfaceRegister(surface);
+      if (union.findRegister(register) == null) {
+        final indexed =
+            union.registers
+                .map((snapshot) => snapshot.originRegister)
+                .toList(growable: false)
+              ..sort();
+        usageException(
+          'unknown register $register in --surface $surface; '
+          'indexed registers: ${indexed.join(', ')}',
+        );
+      }
+    }
+    final all = DecisionIndex.fromUnion(union);
+    final index = surface == null ? all : all.governing(surface);
     if (results.flag('human')) {
       _writeHuman(index);
     } else {
