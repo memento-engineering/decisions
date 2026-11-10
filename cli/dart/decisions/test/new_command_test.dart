@@ -359,6 +359,82 @@ void main() {
     expect(again.toString(), contains('already recorded in $path'));
   });
 
+  test('the closing lint names a pending force request on another entry and '
+      'nothing on the new one', () async {
+    final repoRoot = p.join(sandbox.path, 'alpha');
+    File(p.join(repoRoot, 'lib', 'fixture.dart'))
+      ..createSync(recursive: true)
+      ..writeAsStringSync('final class Fixture {}\n');
+    final bodyFile = File(p.join(sandbox.path, 'body.md'))
+      ..writeAsStringSync(_body);
+    final register = p.join(repoRoot, 'docs', 'decisions');
+
+    Future<int> record(
+      String slug,
+      StringBuffer errors, [
+      List<String> edges = const [],
+    ]) => DecisionsCommandRunner(output: output, error: errors).run([
+      'new',
+      slug,
+      '--title',
+      'The $slug',
+      '--body',
+      bodyFile.path,
+      '--surface',
+      'lib/fixture.dart',
+      '--decision-maker',
+      'nico',
+      '--date',
+      '2026-10-24',
+      '--register',
+      register,
+      '--repo-root',
+      repoRoot,
+      ...edges,
+    ]);
+
+    expect(await record('b-rule', error), 0);
+    // A's printed next: line is deliberately not run, leaving the
+    // force.updated-by back-edge pending on B.
+    expect(await record('a-rule', error, ['--updates', 'b-rule']), 0);
+    expect(error.toString(), isEmpty);
+    final aFile = File(p.join(register, '2026-10-24-a-rule.md'));
+    final bFile = File(p.join(register, '2026-10-24-b-rule.md'));
+    final aBefore = aFile.readAsStringSync();
+    final bBefore = bFile.readAsStringSync();
+
+    final cErrors = StringBuffer();
+    expect(await record('c-rule', cErrors), 0);
+    expect(cErrors.toString(), isEmpty);
+    expect(File(p.join(register, '2026-10-24-c-rule.md')).existsSync(), isTrue);
+    expect(aFile.readAsStringSync(), aBefore);
+    expect(bFile.readAsStringSync(), bBefore);
+
+    final lintOutput = StringBuffer();
+    final lintCode = await DecisionsCommandRunner(
+      output: lintOutput,
+      error: StringBuffer(),
+    ).run(['lint', register, '--repo-root', repoRoot, '--json']);
+    expect(lintCode, 1);
+    final result = jsonDecode(lintOutput.toString()) as Map<String, Object?>;
+    final diagnostics = (result['diagnostics']! as List<Object?>)
+        .cast<Map<String, Object?>>();
+    expect(diagnostics, isNotEmpty);
+    for (final diagnostic in diagnostics) {
+      final file = p.basename(diagnostic['file']! as String);
+      expect(file, '2026-10-24-b-rule.md', reason: '$diagnostic');
+      expect(
+        diagnostic['ruleId'],
+        DecisionLintRules.forceUpdatedBy,
+        reason: '$diagnostic',
+      );
+      expect(
+        file,
+        isNot(anyOf('2026-10-24-a-rule.md', '2026-10-24-c-rule.md')),
+      );
+    }
+  });
+
   group('--max-slug-length', () {
     final longSlug = '${'a' * 59}-${'b' * 60}';
     late String repoRoot;
