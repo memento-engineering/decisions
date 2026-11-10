@@ -21,62 +21,37 @@ void main() {
   });
 
   test('self-hosted render anchors every binding decision', () {
-    final output = p.join(sandbox.path, 'views');
-    final views = renderRegister(
-      registerDirectory: _selfHostedRegister,
-      templateFile: _templateFile,
-      outputDirectory: output,
+    _expectAnchorsEveryBinding(
+      _selfHostedRegister,
+      p.join(sandbox.path, 'views'),
+    );
+  });
+
+  test('a new entry with no bead and no edge renders as one more view', () {
+    final register = Directory(p.join(sandbox.path, 'register'))..createSync();
+    for (final file in Directory(
+      _selfHostedRegister,
+    ).listSync().whereType<File>()) {
+      file.copySync(p.join(register.path, p.basename(file.path)));
+    }
+    _writeTemporaryEntry(register.path);
+    final original = renderViews(
+      graph: DecisionGraph(readRegister(_selfHostedRegister)),
+      template: File(_templateFile).readAsStringSync(),
     );
 
-    // The format's lineage, which the write verb amends as a tier-1 verb,
-    // then the CLI's distribution, which governs tooling and amends no format
-    // decision, then register documents, which add to the format without
-    // amending an entry, then the binary's agent instructions, which govern
-    // tooling, then the doctor verb, which governs tooling, then the
-    // retirement of migrate-legacy, which governs tooling and amends no
-    // entry, then the stream contract every verb shares, which governs
-    // tooling and amends no entry, then the tier table, which defers the verb
-    // list without amending an entry, then the starter style guide, which
-    // adds a template without amending an entry, then the resurface verb,
-    // which states a new writer of surfaces without amending an entry, then
-    // the nightly run against gc latest, which governs CI and amends no
-    // entry, then the read verbs' shared text-by-default output, which
-    // governs tooling and amends no entry, then the index's refusal of an
-    // unread register, which governs tooling and amends no entry. The
-    // Gas City pack's lineage joins the CLI's distribution: the vended
-    // register CI gate amends both.
-    expect(views.map((view) => view.fileName), [
-      '0001-the-decision-register.md',
-      '0002-the-decisions-cli-ships-as-prebuilt-binaries.md',
-      '0003-a-registers-style-md-is-its-style-guide-and-uppercase-files-are-'
-          'not-entries.md',
-      '0004-the-decisions-binary-carries-its-own-agent-instructions.md',
-      '0005-decisions-doctor-answers-whether-this-binary-can-work-this-'
-          'register.md',
-      '0006-decisions-migrate-legacy-is-retired-with-the-legacy-registers-it-'
-          'converted.md',
-      '0007-every-verb-prints-refusals-and-errors-on-stderr-and-results-on-'
-          'stdout.md',
-      '0008-spec-tier-table-describes-capabilities-and-defers-the-verb-list-'
-          'to-the-cli.md',
-      '0009-templates-style-md-is-the-starter-style-guide-for-a-register.md',
-      '0010-decisions-resurface-re-points-a-surface-after-a-move-and-records-'
-          'no-entry.md',
-      '0011-a-nightly-run-checks-the-gas-city-pack-against-gc-latest.md',
-      '0012-every-read-verb-writes-readable-text-by-default-and-json-only-'
-          'when-asked.md',
-      '0013-index-surface-refuses-a-register-the-index-does-not-carry.md',
-    ]);
-    final combined = views.map((view) => view.content).join('\n');
-    final graph = DecisionGraph(readRegister(_selfHostedRegister));
-    final binding = graph.entries.values
-        .where((entry) => graph.isBinding(entry.slug))
-        .toList();
+    final views = _expectAnchorsEveryBinding(
+      register.path,
+      p.join(sandbox.path, 'copy-views'),
+    );
 
-    expect(binding, hasLength(29));
-    for (final entry in binding) {
-      expect(combined, contains('<a id="${entry.slug}"></a>'));
-    }
+    expect(views, hasLength(original.length + 1));
+    expect(
+      views
+          .where((view) => view.fileName.endsWith('-$_temporarySlug.md'))
+          .length,
+      1,
+    );
   });
 
   test('superseded entry names and links its successor', () {
@@ -128,7 +103,16 @@ void main() {
     );
     final views = renderViews(graph: graph, template: template);
 
-    expect(views, hasLength(13));
+    expect(views, isNotEmpty);
+    expect(
+      views,
+      hasLength(
+        renderViews(
+          graph: graph,
+          template: File(_templateFile).readAsStringSync(),
+        ).length,
+      ),
+    );
     for (final view in views) {
       expect(view.content, startsWith('<!-- layout sentinel -->'));
     }
@@ -317,6 +301,105 @@ void main() {
       expect(err.toString(), isEmpty);
     });
   });
+}
+
+/// Renders [register] into [output] and asserts what the rendered views must
+/// hold whatever entries the register carries, and returns the views.
+List<DecisionView> _expectAnchorsEveryBinding(String register, String output) {
+  final views = renderRegister(
+    registerDirectory: register,
+    templateFile: _templateFile,
+    outputDirectory: output,
+  );
+  final graph = DecisionGraph(readRegister(register));
+  final binding = graph.entries.values
+      .where((entry) => graph.isBinding(entry.slug))
+      .toList();
+  String anchor(String slug) => '<a id="$slug"></a>';
+  int viewAnchoring(String slug) =>
+      views.indexWhere((view) => view.content.contains(anchor(slug)));
+
+  expect(views, isNotEmpty);
+  expect(binding, isNotEmpty);
+
+  // Views are numbered from one, zero-padded, with no gaps, and each is
+  // named for an entry it anchors.
+  for (var i = 0; i < views.length; i++) {
+    final name = views[i].fileName;
+    final prefix = '${(i + 1).toString().padLeft(4, '0')}-';
+    expect(name, startsWith(prefix));
+    expect(name, endsWith('.md'));
+    final slug = name.substring(prefix.length, name.length - '.md'.length);
+    expect(graph.entries.keys, contains(slug), reason: name);
+    expect(views[i].content, contains(anchor(slug)), reason: name);
+  }
+
+  for (final entry in binding) {
+    expect(
+      views.where((view) => view.content.contains(anchor(entry.slug))).length,
+      1,
+      reason: entry.slug,
+    );
+  }
+
+  // The format's root is the register's earliest entry, so it leads.
+  expect(views.first.fileName, '0001-the-decision-register.md');
+
+  // The CLI's distribution is a lineage apart from the format's, and the
+  // Gas City pack's lineage joins it because the vended register CI gate
+  // amends both.
+  const distribution = 'the-decisions-cli-ships-as-prebuilt-binaries';
+  const lintGate = 'decisions-lint-gate-is-the-vended-register-ci-check';
+  const noOrders =
+      'the-gas-city-pack-ships-no-orders-and-register-health-belongs-in-'
+      'each-rigs-ci';
+  const guideStubs = 'the-register-ships-to-gas-city-as-a-pack-of-guide-stubs';
+  final distributionView = viewAnchoring(distribution);
+  expect(distributionView, isNonNegative);
+  expect(distributionView, isNot(viewAnchoring('the-decision-register')));
+  for (final slug in [lintGate, noOrders, guideStubs]) {
+    expect(viewAnchoring(slug), distributionView, reason: slug);
+  }
+  expect(
+    graph
+        .outgoingFrom(lintGate, kind: DecisionEdgeKind.updates)
+        .map((edge) => edge.target.slug),
+    containsAll([distribution, noOrders]),
+  );
+
+  return views;
+}
+
+const _temporarySlug = 'a-temporary-entry-with-no-bead-and-no-edge';
+
+/// Writes an accepted entry with no bead and no edge into [register].
+void _writeTemporaryEntry(String register) {
+  File(p.join(register, '2026-11-09-$_temporarySlug.md')).writeAsStringSync('''
+---
+status: accepted
+date: 2026-11-09
+decision-makers: ["nico"]
+consulted: []
+informed: []
+register:
+  spec: 1
+  slug: "$_temporarySlug"
+  surfaces:
+    - "README.md"
+  obsoletes: []
+  updates: []
+  obsoleted-by: null
+  updated-by: []
+  bead: null
+  legacy-id: null
+---
+
+# $_temporarySlug
+
+## Decision Outcome
+
+Fixture.
+''');
 }
 
 Future<int> _run(List<String> args, StringBuffer out, StringBuffer err) =>
