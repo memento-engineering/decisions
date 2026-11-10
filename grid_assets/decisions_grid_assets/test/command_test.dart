@@ -42,7 +42,7 @@ void main() {
     expect(command.subcommands.keys, containsAll(['lint', 'index', 'search']));
 
     resident.roots = [_sourceRoot, _otherRoot, 'missing-substation'];
-    expect(await runner.run(['decisions', 'index']), 0);
+    expect(await runner.run(['decisions', 'index', '--json']), 0);
     expect(resident.reads, 1);
 
     final decoded = jsonDecode(output.toString()) as Map<String, dynamic>;
@@ -203,7 +203,7 @@ Fixture.
             );
       final runner = CommandRunner<int>('station', 'fixture')
         ..addCommand(command);
-      expect(await runner.run(['decisions', 'index']), 0);
+      expect(await runner.run(['decisions', 'index', '--json']), 0);
       return jsonDecode(output.toString()) as Map<String, dynamic>;
     }
 

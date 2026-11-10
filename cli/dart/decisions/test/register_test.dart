@@ -31,117 +31,30 @@ void main() {
     });
 
     test('optional authored identities default to null', () {
-      final beads = {for (final entry in entries) entry.slug: entry.bead};
-      expect(beads['docket-triggers'], 'dec-iut');
-      expect(beads['lexical-precedent-search'], 'dec-5q9');
-      expect(
-        beads['force-mutations-scope-cleanliness-to-touched-entries'],
-        'dec-3g7',
-      );
-      expect(
-        beads['successor-updated-by-dirt-does-not-block-force-mutation'],
-        'dec-o67',
-      );
-      expect(beads['cross-register-force-edges'], 'dec-b17');
-      expect(
-        beads['the-decisions-cli-ships-as-prebuilt-binaries'],
-        'dec-n8y.2',
-      );
-      expect(
-        beads['a-registers-style-md-is-its-style-guide-and-uppercase-files-'
-            'are-not-entries'],
-        'dec-vqt',
-      );
-      expect(beads['decisions-new-owns-the-write-mechanics'], 'dec-dmq');
-      expect(
-        beads['the-decisions-binary-carries-its-own-agent-instructions'],
-        'dec-mtj',
-      );
-      expect(
-        beads['a-skill-stub-names-its-fallback-when-the-decisions-binary-is-'
-            'missing'],
-        'dec-2ow',
-      );
-      expect(
-        beads['decisions-doctor-answers-whether-this-binary-can-work-this-'
-            'register'],
-        'dec-2nx',
-      );
-      expect(
-        beads['templates-style-md-is-the-starter-style-guide-for-a-register'],
-        'dec-1ee',
-      );
-      expect(
-        beads['the-register-ships-to-gas-city-as-a-pack-of-guide-stubs'],
-        'dec-iiq',
-      );
-      expect(
-        beads['each-release-prints-and-smoke-tests-its-gas-city-pin'],
-        'dec-p7f.7.5',
-      );
-      expect(
-        beads['the-gas-city-pack-ships-no-orders-and-register-health-belongs-'
-            'in-each-rigs-ci'],
-        'dec-kch',
-      );
-      expect(
-        beads['spec-tier-table-describes-capabilities-and-defers-the-verb-'
-            'list-to-the-cli'],
-        'dec-9ed',
-      );
-      expect(
-        beads['every-verb-prints-refusals-and-errors-on-stderr-and-results-'
-            'on-stdout'],
-        'dec-p6z',
-      );
-      beads.remove('docket-triggers');
-      beads.remove('lexical-precedent-search');
-      beads.remove('force-mutations-scope-cleanliness-to-touched-entries');
-      beads.remove('successor-updated-by-dirt-does-not-block-force-mutation');
-      beads.remove('cross-register-force-edges');
-      beads.remove('the-decisions-cli-ships-as-prebuilt-binaries');
-      beads.remove(
-        'a-registers-style-md-is-its-style-guide-and-uppercase-files-'
-        'are-not-entries',
-      );
-      beads.remove('decisions-new-owns-the-write-mechanics');
-      beads.remove('the-decisions-binary-carries-its-own-agent-instructions');
-      beads.remove(
-        'a-skill-stub-names-its-fallback-when-the-decisions-binary-is-missing',
-      );
-      beads.remove(
-        'decisions-doctor-answers-whether-this-binary-can-work-this-register',
-      );
-      beads.remove(
-        'templates-style-md-is-the-starter-style-guide-for-a-register',
-      );
-      beads.remove('the-register-ships-to-gas-city-as-a-pack-of-guide-stubs');
-      beads.remove('each-release-prints-and-smoke-tests-its-gas-city-pin');
-      beads.remove(
-        'the-gas-city-pack-ships-no-orders-and-register-health-belongs-in-'
-        'each-rigs-ci',
-      );
-      beads.remove(
-        'spec-tier-table-describes-capabilities-and-defers-the-verb-list-to-'
-        'the-cli',
-      );
-      beads.remove(
-        'every-verb-prints-refusals-and-errors-on-stderr-and-results-on-stdout',
-      );
-      beads.remove(
-        'decisions-migrate-legacy-is-retired-with-the-legacy-registers-it-'
-        'converted',
-      );
-      beads.remove('decisions-lint-gate-is-the-vended-register-ci-check');
-      beads.remove(
-        'decisions-resurface-re-points-a-surface-after-a-move-and-records-no-'
-        'entry',
-      );
-      beads.remove('a-surface-must-resolve-only-on-an-entry-in-force');
-      beads.remove('index-surface-refuses-a-register-the-index-does-not-carry');
-      expect(beads.values, everyElement(isNull));
-      expect(entries.map((entry) => entry.legacyId), everyElement(isNull));
+      _expectAuthoredIdentities(entries);
     });
+
+    test(
+      'a new entry with no bead and no edge leaves the identity checks passing',
+      () {
+        final copy = Directory.systemTemp.createTempSync(
+          'decisions-register-copy-',
+        );
+        addTearDown(() => copy.deleteSync(recursive: true));
+        for (final file in Directory(_register).listSync().whereType<File>()) {
+          file.copySync(p.join(copy.path, p.basename(file.path)));
+        }
+        _writeLimitEntry(
+          copy.path,
+          'a-temporary-entry-with-no-bead-and-no-edge',
+        );
+
+        final copied = readRegister(copy.path);
+
+        expect(copied, hasLength(entries.length + 1));
+        _expectAuthoredIdentities(copied);
+      },
+    );
 
     test('parses cached force fields', () {
       final root = entries.singleWhere(
@@ -415,6 +328,87 @@ void main() {
       ]);
     });
   });
+}
+
+/// The entries that held no bead when this list was written. It never grows:
+/// a new entry is named by neither this list nor the explicit bead checks, so
+/// adding one to the register leaves this file alone.
+const _nullBeadSlugs = [
+  'the-decision-register',
+  'entry-identity',
+  'madr-profile',
+  'spec-and-artifact-versioning',
+  'a-registers-slug-limit-is-a-caller-setting-80-by-default',
+];
+
+/// Pins the beads the self-hosted register's entries carry, the entries that
+/// carry none, and that no entry carries a legacy id.
+void _expectAuthoredIdentities(List<DecisionEntry> entries) {
+  final beads = {for (final entry in entries) entry.slug: entry.bead};
+  expect(beads['docket-triggers'], 'dec-iut');
+  expect(beads['lexical-precedent-search'], 'dec-5q9');
+  expect(
+    beads['force-mutations-scope-cleanliness-to-touched-entries'],
+    'dec-3g7',
+  );
+  expect(
+    beads['successor-updated-by-dirt-does-not-block-force-mutation'],
+    'dec-o67',
+  );
+  expect(beads['cross-register-force-edges'], 'dec-b17');
+  expect(beads['the-decisions-cli-ships-as-prebuilt-binaries'], 'dec-n8y.2');
+  expect(
+    beads['a-registers-style-md-is-its-style-guide-and-uppercase-files-'
+        'are-not-entries'],
+    'dec-vqt',
+  );
+  expect(beads['decisions-new-owns-the-write-mechanics'], 'dec-dmq');
+  expect(
+    beads['the-decisions-binary-carries-its-own-agent-instructions'],
+    'dec-mtj',
+  );
+  expect(
+    beads['a-skill-stub-names-its-fallback-when-the-decisions-binary-is-'
+        'missing'],
+    'dec-2ow',
+  );
+  expect(
+    beads['decisions-doctor-answers-whether-this-binary-can-work-this-'
+        'register'],
+    'dec-2nx',
+  );
+  expect(
+    beads['templates-style-md-is-the-starter-style-guide-for-a-register'],
+    'dec-1ee',
+  );
+  expect(
+    beads['the-register-ships-to-gas-city-as-a-pack-of-guide-stubs'],
+    'dec-iiq',
+  );
+  expect(
+    beads['each-release-prints-and-smoke-tests-its-gas-city-pin'],
+    'dec-p7f.7.5',
+  );
+  expect(
+    beads['the-gas-city-pack-ships-no-orders-and-register-health-belongs-'
+        'in-each-rigs-ci'],
+    'dec-kch',
+  );
+  expect(
+    beads['spec-tier-table-describes-capabilities-and-defers-the-verb-'
+        'list-to-the-cli'],
+    'dec-9ed',
+  );
+  expect(
+    beads['every-verb-prints-refusals-and-errors-on-stderr-and-results-'
+        'on-stdout'],
+    'dec-p6z',
+  );
+  for (final slug in _nullBeadSlugs) {
+    expect(beads.containsKey(slug), isTrue, reason: slug);
+    expect(beads[slug], isNull, reason: slug);
+  }
+  expect(entries.map((entry) => entry.legacyId), everyElement(isNull));
 }
 
 const _limitBody = '''

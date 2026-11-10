@@ -1,0 +1,50 @@
+name: nightly
+
+# Runs gc_pack/e2e.sh against gc's latest release, so a gc release that
+# changes pack, import or order behaviour is seen here before an adopter hits
+# it. ci.yaml's gc_pack job stays the gate, on the pinned gc; this run only
+# signals. A red run blocks nothing and files no issue: it is fixed forward,
+# by bumping the pin in .github/actions/gc-sandbox-tools or by fixing the pack
+# README claim the failing scenario names. GitHub disables a public
+# repository's schedule after 60 days without activity; ci.yaml's
+# revive_nightly job re-enables it on every push to main.
+on:
+  schedule:
+    # Daily, off the top of the hour that GitHub's scheduler crowds.
+    - cron: '17 5 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # ci.yaml's gc_pack steps, in order, with only the gc changed, so a red
+  # nightly differs from the green gc_pack run only in the gc it installed.
+  gc_pack_latest:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # tags too: the --include scenario needs this repo's prefixed tags.
+          fetch-depth: 0
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: 3.12.2
+      - uses: ./.github/actions/gc-sandbox-tools
+        with:
+          apt-extra: shellcheck
+          gc-version: latest
+      - name: Compile decisions onto PATH
+        working-directory: cli/dart/decisions
+        run: |
+          dart pub get
+          dart compile exe bin/decisions.dart -o "$RUNNER_TEMP/bin/decisions"
+      # gc clones the pack source over file://; keep the checked-out commit
+      # reachable from a ref.
+      - run: git branch -f gc-e2e HEAD
+      - run: shellcheck gc_pack/e2e.sh
+      - name: gc_pack/e2e.sh
+        run: |
+          GC_BIN="$RUNNER_TEMP/bin/gc" BD_BIN="$RUNNER_TEMP/bin/bd" \
+            DOLT_BIN="$RUNNER_TEMP/bin/dolt" DECISIONS_BIN="$RUNNER_TEMP/bin/decisions" \
+            gc_pack/e2e.sh

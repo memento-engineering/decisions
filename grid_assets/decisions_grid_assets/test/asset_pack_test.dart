@@ -109,7 +109,10 @@ Future<List<Map<String, dynamic>>> _governingDecisions(String surface) async {
       ),
     );
 
-  expect(await runner.run(['decisions', 'index', '--surface', surface]), 0);
+  expect(
+    await runner.run(['decisions', 'index', '--json', '--surface', surface]),
+    0,
+  );
   final payload = jsonDecode(output.toString()) as Map<String, dynamic>;
   return (payload['decisions'] as List<dynamic>).cast<Map<String, dynamic>>();
 }
@@ -423,7 +426,7 @@ void main() {
 
     expect(
       rubric,
-      contains('<station> decisions index --surface <repo>/<path>'),
+      contains('<station> decisions index --json --surface <repo>/<path>'),
     );
     expect(rubric, contains('with no explicit register-directory arguments'));
     expect(rubric, contains('docs/decisions/'));

@@ -13,7 +13,8 @@ typedef RegisterPathResolver = Iterable<String> Function();
 
 /// Emits a structured decision index over explicit or resolved registers.
 final class IndexCommand extends Command<int> {
-  /// Creates the command, writing JSON to [output] or standard output.
+  /// Creates the command, writing the readable summary, or JSON under
+  /// `--json`, to [output] or standard output.
   ///
   /// Explicit positional paths win. When argv carries none, [registerPaths]
   /// is invoked at run time; omitting it preserves the tier-1 zero-path
@@ -37,9 +38,9 @@ final class IndexCommand extends Command<int> {
             'usage error (exit 64).',
       )
       ..addFlag(
-        'human',
+        'json',
         negatable: false,
-        help: 'Emit a human-readable decision and diagnostic summary.',
+        help: 'Emit the schema-versioned JSON result.',
       );
     addMaxSlugLengthOption(argParser);
   }
@@ -53,7 +54,8 @@ final class IndexCommand extends Command<int> {
 
   @override
   String get description =>
-      'Index one or more decision-register directories as JSON.';
+      'Index one or more decision-register directories: a readable summary, '
+      'or JSON under --json.';
 
   @override
   FutureOr<int> run() {
@@ -93,15 +95,15 @@ final class IndexCommand extends Command<int> {
     }
     final all = DecisionIndex.fromUnion(union);
     final index = surface == null ? all : all.governing(surface);
-    if (results.flag('human')) {
-      _writeHuman(index);
-    } else {
+    if (results.flag('json')) {
       _output.writeln(jsonEncode(index.toJson()));
+    } else {
+      _writeSummary(index);
     }
     return 0;
   }
 
-  void _writeHuman(DecisionIndex index) {
+  void _writeSummary(DecisionIndex index) {
     _output.writeln('decisions: ${index.decisions.length}');
     for (final decision in index.decisions) {
       _output.writeln(

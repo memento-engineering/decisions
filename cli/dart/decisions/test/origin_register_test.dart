@@ -277,6 +277,7 @@ register:
       final result = await Process.run(Platform.resolvedExecutable, [
         p.absolute('bin', 'decisions.dart'),
         'index',
+        '--json',
       ], workingDirectory: checkout);
 
       expect(result.exitCode, 0, reason: '${result.stderr}');
