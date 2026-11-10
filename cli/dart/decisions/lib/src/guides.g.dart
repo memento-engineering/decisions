@@ -47,6 +47,13 @@ files there; never a catch-all. For a deleted path, name the surviving parent.
 Leave out unrelated files, and the entry itself unless the decision is about the
 register. Every surface must resolve in this checkout.
 
+When that evidence lists nothing, or only the new entry, the decision governs
+work not yet done, and empty evidence is not an empty answer: name the paths
+its `## Decision Outcome` will govern, by the same rules, each resolving in
+this checkout. A governed path that does not exist yet is named by its nearest
+existing parent, as a deleted path is. Never fall back to the entry itself
+unless the decision is about the register.
+
 ## Authorship, honestly
 
 `--decision-maker` names whoever actually made the call: a human ruling names
