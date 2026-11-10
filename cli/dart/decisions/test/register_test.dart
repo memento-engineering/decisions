@@ -139,6 +139,7 @@ void main() {
       );
       beads.remove('a-surface-must-resolve-only-on-an-entry-in-force');
       beads.remove('index-surface-refuses-a-register-the-index-does-not-carry');
+      beads.remove('a-nightly-run-checks-the-gas-city-pack-against-gc-latest');
       expect(beads.values, everyElement(isNull));
       expect(entries.map((entry) => entry.legacyId), everyElement(isNull));
     });
