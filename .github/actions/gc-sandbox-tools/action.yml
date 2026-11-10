@@ -4,13 +4,21 @@ description: >-
   that gc_pack/e2e.sh runs against, into $RUNNER_TEMP/bin on PATH. This is the
   one place those pins live: ci.yaml's gc_pack job and release.yaml's
   gc_pack_published job both use it, so bumping a binary is one version/sha
-  pair here. Linux x64 runners only.
+  pair here. gc may instead be gc's latest release (nightly.yaml asks for it);
+  bd and dolt always stay pinned. Linux x64 runners only.
 
 inputs:
   apt-extra:
     description: Extra apt packages to install alongside gc's dependencies.
     required: false
     default: ''
+  gc-version:
+    description: >-
+      The gc to install: 1.5.1, the pin, checked against its pinned sha256 and
+      its release's checksums file; or latest, gc's newest release, checked
+      only against its own release's checksums file. Anything else is refused.
+    required: false
+    default: '1.5.1'
 
 outputs:
   bin-dir:
@@ -40,7 +48,9 @@ runs:
       name: Download gc, bd and dolt
       shell: bash
       env:
-        GC_VERSION: 1.5.1
+        GC_PINNED_VERSION: 1.5.1
+        GC_VERSION_INPUT: ${{ inputs.gc-version }}
+        GH_TOKEN: ${{ github.token }}
         GC_SHA256: 3a405a5455eb6216f7f65d4516a614e4913d83bc8964df8800e0533ab2d40044
         # gc init refuses bd below 1.3.0.
         BD_VERSION: 1.3.2
@@ -49,6 +59,29 @@ runs:
         DOLT_SHA256: 5d95a271149dc6ea97f47157af7ba9a0df5e8d4e9bbac4d79c169f2faa3cfb9e
       run: |
         set -euo pipefail
+        # Refuse an unknown gc-version before anything downloads: the pinned
+        # sha256 belongs to one version, and latest is the deliberate opt-out.
+        case "$GC_VERSION_INPUT" in
+          latest)
+            gc_tag="$(gh api repos/gastownhall/gascity/releases/latest --jq .tag_name)"
+            if [ -z "$gc_tag" ] || [ "$gc_tag" = null ]; then
+              echo "gc-sandbox-tools: could not resolve gc's latest release tag" >&2
+              exit 1
+            fi
+            GC_VERSION="${gc_tag#v}"
+            gc_pinned=false
+            ;;
+          "$GC_PINNED_VERSION")
+            GC_VERSION="$GC_PINNED_VERSION"
+            gc_pinned=true
+            ;;
+          *)
+            echo "gc-sandbox-tools: gc-version must be $GC_PINNED_VERSION or latest, not '$GC_VERSION_INPUT'" >&2
+            exit 1
+            ;;
+        esac
+        echo "gc-sandbox-tools: installing gc $GC_VERSION (pinned: $gc_pinned)"
+
         mkdir -p "$RUNNER_TEMP/bin" "$RUNNER_TEMP/dl"
         cd "$RUNNER_TEMP/dl"
 
@@ -56,7 +89,9 @@ runs:
         gc_url="https://github.com/gastownhall/gascity/releases/download/v${GC_VERSION}"
         curl -fsSLO "$gc_url/$gc_tar"
         curl -fsSLO "$gc_url/gascity_${GC_VERSION}_checksums.txt"
-        echo "${GC_SHA256}  $gc_tar" | sha256sum -c -
+        if [ "$gc_pinned" = true ]; then
+          echo "${GC_SHA256}  $gc_tar" | sha256sum -c -
+        fi
         grep " $gc_tar\$" "gascity_${GC_VERSION}_checksums.txt" | sha256sum -c -
         tar -xzf "$gc_tar" gc
 
