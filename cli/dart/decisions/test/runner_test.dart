@@ -70,6 +70,20 @@ void main() {
     expect(runner.commands['resurface']?.name, 'resurface');
   });
 
+  test('both hosts carry the render verb', () {
+    final grouped = DecisionsCommand(output: StringBuffer());
+    final runner = DecisionsCommandRunner(output: StringBuffer());
+
+    expect(
+      grouped.subcommands['render'],
+      isA<RenderCommand>().having((verb) => verb.name, 'name', 'render'),
+    );
+    expect(
+      runner.commands['render'],
+      isA<RenderCommand>().having((verb) => verb.name, 'name', 'render'),
+    );
+  });
+
   test('resurface gives the grouped command\'s output', () async {
     final sandboxes = [
       for (var i = 0; i < 2; i++)

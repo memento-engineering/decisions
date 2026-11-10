@@ -81,6 +81,7 @@ void main() {
         'lint',
         'update',
         'resurface',
+        'render',
         'guide',
       ]) {
         expect(output.toString(), contains('\n  $verb '));
@@ -88,6 +89,10 @@ void main() {
       expect(
         output.toString(),
         contains('after a move or rename, re-point surfaces at the new path'),
+      );
+      expect(
+        output.toString(),
+        contains('regenerate lineage views from the graph'),
       );
     });
 

@@ -11,6 +11,7 @@ import 'lint.dart';
 import 'mutation.dart';
 import 'new_command.dart';
 import 'register_union.dart';
+import 'render_command.dart';
 import 'search_command.dart';
 import 'slug_limit_option.dart';
 import 'version.dart';
@@ -146,6 +147,11 @@ List<Command<int>> _verbs({
       output: resolvedOutput,
     ),
     DoctorCommand(output: resolvedOutput, slugLimits: slugLimits),
+    RenderCommand(
+      output: resolvedOutput,
+      error: resolvedError,
+      slugLimits: slugLimits,
+    ),
     DecisionNewCommand(
       linter: linter,
       registerPaths: resolvedRegisterPaths,

@@ -20,6 +20,7 @@ export 'src/new_command.dart';
 export 'src/record.dart';
 export 'src/register_union.dart';
 export 'src/render.dart';
+export 'src/render_command.dart';
 export 'src/search.dart';
 export 'src/search_command.dart';
 export 'src/version.dart';
