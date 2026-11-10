@@ -40,7 +40,8 @@ void main() {
     // adds a template without amending an entry, then the resurface verb,
     // which states a new writer of surfaces without amending an entry, then
     // the index's refusal of an unread register, which governs tooling and
-    // amends no entry. The
+    // amends no entry, then the read verbs' shared text-by-default output,
+    // which governs tooling and amends no entry. The
     // Gas City pack's lineage joins the CLI's distribution: the vended
     // register CI gate amends both.
     expect(views.map((view) => view.fileName), [
@@ -60,7 +61,9 @@ void main() {
       '0009-templates-style-md-is-the-starter-style-guide-for-a-register.md',
       '0010-decisions-resurface-re-points-a-surface-after-a-move-and-records-'
           'no-entry.md',
-      '0011-index-surface-refuses-a-register-the-index-does-not-carry.md',
+      '0011-every-read-verb-writes-readable-text-by-default-and-json-only-'
+          'when-asked.md',
+      '0012-index-surface-refuses-a-register-the-index-does-not-carry.md',
     ]);
     final combined = views.map((view) => view.content).join('\n');
     final graph = DecisionGraph(readRegister(_selfHostedRegister));
@@ -68,7 +71,7 @@ void main() {
         .where((entry) => graph.isBinding(entry.slug))
         .toList();
 
-    expect(binding, hasLength(27));
+    expect(binding, hasLength(28));
     for (final entry in binding) {
       expect(combined, contains('<a id="${entry.slug}"></a>'));
     }
@@ -123,7 +126,7 @@ void main() {
     );
     final views = renderViews(graph: graph, template: template);
 
-    expect(views, hasLength(11));
+    expect(views, hasLength(12));
     for (final view in views) {
       expect(view.content, startsWith('<!-- layout sentinel -->'));
     }
