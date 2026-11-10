@@ -22,7 +22,7 @@ Future<Map<String, dynamic>> _runJson(List<String> arguments) async {
   final output = StringBuffer();
   final runner = CommandRunner<int>('decisions', 'Decision register tools')
     ..addCommand(IndexCommand(output: output));
-  expect(await runner.run(arguments), 0);
+  expect(await runner.run([...arguments, '--json']), 0);
   return jsonDecode(output.toString()) as Map<String, dynamic>;
 }
 
@@ -84,10 +84,10 @@ void main() {
       );
     });
 
-    test('refuses an unknown register with --human', () async {
+    test('refuses an unknown register with --json', () async {
       final result = await _runCli([
         'index',
-        '--human',
+        '--json',
         '--surface',
         'nosuch_repo/README.md',
         _sourceRegister,
@@ -169,6 +169,7 @@ void main() {
 
       final exitCode = await runner.run([
         'index',
+        '--json',
         _sourceRegister,
         _otherRegister,
       ]);
@@ -220,10 +221,66 @@ void main() {
     expect(calls, 0);
     resolved = [_sourceRegister, _otherRegister];
 
-    expect(await runner.run(['index']), 0);
+    expect(await runner.run(['index', '--json']), 0);
     expect(calls, 1);
     final decoded = jsonDecode(output.toString()) as Map<String, dynamic>;
     expect(decoded['decisions'], hasLength(2));
+  });
+
+  test('a bare index writes the readable summary, not JSON', () async {
+    final result = await _runCli(['index', _sourceRegister, _otherRegister]);
+    final lines = result.out.split('\n');
+    final statusLine = RegExp(r'^- \S+#\S+ \[[a-z]+\]$');
+
+    expect(result.code, 0);
+    expect(result.err, isEmpty);
+    expect(result.out, startsWith('decisions: 2\n'));
+    expect(lines.where((line) => line.startsWith('- source_repo#')).toList(), [
+      matches(statusLine),
+    ]);
+    expect(lines.where((line) => line.startsWith('- other_repo#')).toList(), [
+      matches(statusLine),
+    ]);
+    expect(lines, contains('diagnostics: 0'));
+    expect(() => jsonDecode(result.out), throwsFormatException);
+  });
+
+  test('--json writes the index JSON unchanged', () async {
+    final result = await _runCli([
+      'index',
+      '--json',
+      _sourceRegister,
+      _otherRegister,
+    ]);
+    final expected = jsonEncode(
+      DecisionIndex.fromUnion(
+        DecisionRegisterUnion.fromRegisterPaths([
+          _sourceRegister,
+          _otherRegister,
+        ]),
+      ).toJson(),
+    );
+    final schema = JsonSchema.create(
+      jsonDecode(
+            File(
+              '../../../schema/decision-index.schema.json',
+            ).readAsStringSync(),
+          )
+          as Map<String, Object?>,
+    );
+
+    expect(result.code, 0);
+    expect(result.out, '$expected\n');
+    expect(schema.validate(jsonDecode(result.out)).isValid, isTrue);
+  });
+
+  test('--human is an unknown option', () async {
+    final result = await _runCli(['index', '--human', _sourceRegister]);
+
+    expect(result.code, 64);
+    expect(result.out, isEmpty);
+    expect(result.err, contains('Could not find an option named "--human".'));
+    expect(result.err, contains('Usage: decisions index'));
   });
 
   test('emits schema-valid diagnostics in JSON and human output', () async {
@@ -250,7 +307,7 @@ void main() {
     final output = StringBuffer();
     final runner = CommandRunner<int>('decisions', 'Decision register tools')
       ..addCommand(IndexCommand(output: output));
-    expect(await runner.run(['index', '--human', _malformedRegister]), 0);
+    expect(await runner.run(['index', _malformedRegister]), 0);
     expect(output.toString(), contains('decisions: 2'));
     expect(output.toString(), contains('diagnostics: 1'));
     expect(

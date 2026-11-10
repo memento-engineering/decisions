@@ -27,7 +27,7 @@ path with its substation repository name, and invoke the composing station's
 runner once per unique roster-qualified path:
 
 ```sh
-<station> decisions index --surface <repo>/<path>
+<station> decisions index --json --surface <repo>/<path>
 ```
 
 Call roster mode with no explicit register-directory arguments. That omission

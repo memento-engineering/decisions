@@ -306,7 +306,7 @@ predecessor stay separate acts.
 | Tier | What you get | Needs |
 |---|---|---|
 | 0 — prose | the format, templates, a greppable register, the skills as plain markdown | nothing |
-| 1 — CLI | a CLI that indexes, searches and lints the register, records entries and writes force changes, JSON out | an ecosystem impl |
+| 1 — CLI | a CLI that indexes, searches and lints the register, records entries and writes force changes, readable text out, JSON on request | an ecosystem impl |
 | 2 — grid | overlay-installed skills, the committee lens, roster-wide cross-repo index and search, decision beads | a station |
 
 The tier table names capabilities, not verbs. Verbs are tooling and change from release to release;

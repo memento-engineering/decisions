@@ -334,7 +334,10 @@ void main() {
 
     test('index lists the long slug under the flag, and a diagnostic without '
         'it', () async {
-      expect(await run(['index', '--max-slug-length', '160', reg]), 0);
+      expect(
+        await run(['index', '--json', '--max-slug-length', '160', reg]),
+        0,
+      );
       final limited = jsonDecode(output.toString()) as Map<String, Object?>;
       expect((limited['decisions']! as List).map((d) => (d as Map)['slug']), [
         longSlug,
@@ -342,7 +345,7 @@ void main() {
       expect(limited['diagnostics'], isEmpty);
 
       output.clear();
-      expect(await run(['index', reg]), 0);
+      expect(await run(['index', '--json', reg]), 0);
       final unlimited = jsonDecode(output.toString()) as Map<String, Object?>;
       expect(unlimited['decisions'], isEmpty);
       expect(unlimited['diagnostics'], hasLength(1));
