@@ -78,9 +78,17 @@ nothing: fix what it names, never weaken surfaces or authored facts to silence
 it. On success, run every printed `next:` line exactly as printed; it writes the
 cached back-edge for the edge you authored. Never hand-write `status`,
 `obsoleted-by` or `updated-by`, and run no other force verb unless the
-decision-maker ruled that force change (that is `ratify`). Finish with
-`decisions lint docs/decisions --repo-root .` and report the path, the
-`repo#slug` handle, the bead or trackerless status, and the surfaces.
+decision-maker ruled that force change (that is `ratify`). Once every `next:`
+line has run, finish with `decisions lint docs/decisions --repo-root . --json`.
+It lints the whole register; read it by touched entry, as the force verbs do
+(decisions#force-mutations-scope-cleanliness-to-touched-entries). You pass when
+no diagnostic's `file` is the new entry or the target of an edge it authored;
+fix any that is, as you fix a refusal. Any other diagnostic is not yours, and a
+non-zero exit caused only by those is expected: never edit an unrelated entry,
+or change a surface or an authored fact, to silence one. Report their count by
+`ruleId` (a `force.updated-by` or `force.obsoleted-by` on another entry is a
+pending force request, `ratify`'s signal 2), then the path, the `repo#slug`
+handle, the bead or trackerless status, and the surfaces.
 
 ## Without the decisions binary
 

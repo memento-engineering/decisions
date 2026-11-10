@@ -59,7 +59,7 @@ void main() {
 
   test('the body is judgement only, short enough to read whole', () {
     final lines = _body.split('\n').where((line) => line.trim().isNotEmpty);
-    expect(lines.length, lessThanOrEqualTo(70));
+    expect(lines.length, lessThanOrEqualTo(76));
     // The mechanics `decisions new` owns are no longer transcribed as shell.
     for (final mechanic in [
       'rg -n',
@@ -98,6 +98,25 @@ void main() {
     expect(_prose, contains('Never hand-write `status`'));
     expect(_prose, contains('run no other force verb unless'));
     expect(_prose, contains('decisions lint docs/decisions --repo-root .'));
+  });
+
+  test('the closing lint is read by touched entry', () {
+    for (final cue in [
+      'decisions lint docs/decisions --repo-root . --json',
+      'Once every `next:` line has run',
+      'decisions#force-mutations-scope-cleanliness-to-touched-entries',
+      "no diagnostic's `file` is the new entry or the target of an edge it "
+          'authored',
+      'non-zero exit caused only by those is expected',
+      'never edit an unrelated entry, or change a surface or an authored '
+          'fact, to silence one',
+      'never weaken surfaces or authored facts to silence it',
+      'count by `ruleId`',
+      'pending force request',
+      'signal 2',
+    ]) {
+      expect(_prose, contains(cue), reason: cue);
+    }
   });
 
   test('keeps the judgement a program cannot check', () {
