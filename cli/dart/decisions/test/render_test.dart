@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:decisions/decisions.dart';
@@ -142,7 +143,176 @@ void main() {
     );
     expect(existing.readAsStringSync(), 'keep me\n');
   });
+
+  group('decisions render', () {
+    test('byte-identical to renderRegister', () async {
+      final cliViews = p.join(sandbox.path, 'cli-views');
+      final libViews = p.join(sandbox.path, 'lib-views');
+      final out = StringBuffer();
+      final err = StringBuffer();
+
+      final code = await _run(
+        [
+          'render',
+          _selfHostedRegister,
+          '--template',
+          _templateFile,
+          '--output',
+          cliViews,
+        ],
+        out,
+        err,
+      );
+      final views = renderRegister(
+        registerDirectory: _selfHostedRegister,
+        templateFile: _templateFile,
+        outputDirectory: libViews,
+      );
+
+      expect(code, 0);
+      final written = _markdownBytes(Directory(cliViews));
+      expect(written, isNotEmpty);
+      expect(written, equals(_markdownBytes(Directory(libViews))));
+      expect(
+        out.toString(),
+        views.map((view) => '${p.join(cliViews, view.fileName)}\n').join(),
+      );
+      expect(err.toString(), isEmpty);
+    });
+
+    test('missing --template is a usage error', () async {
+      final output = p.join(sandbox.path, 'views');
+      final out = StringBuffer();
+      final err = StringBuffer();
+
+      final code = await _run(
+        ['render', _selfHostedRegister, '--output', output],
+        out,
+        err,
+      );
+
+      expect(code, 64);
+      expect(err.toString(), contains('render needs --template <file>'));
+      expect(Directory(output).existsSync(), isFalse);
+    });
+
+    test('wrong positional count is a usage error', () async {
+      for (final args in [
+        ['render', '--template', _templateFile],
+        [
+          'render',
+          _selfHostedRegister,
+          _fixtureRegister,
+          '--template',
+          _templateFile,
+        ],
+      ]) {
+        final out = StringBuffer();
+        final err = StringBuffer();
+
+        expect(await _run(args, out, err), 64, reason: '$args');
+        expect(
+          err.toString(),
+          contains('Expected exactly one register path.'),
+          reason: '$args',
+        );
+      }
+    });
+
+    test('invalid template leaves existing views', () async {
+      final output = Directory(p.join(sandbox.path, 'views'))..createSync();
+      final existing = File(p.join(output.path, '0001-existing.md'))
+        ..writeAsStringSync('keep me\n');
+      final before = existing.readAsBytesSync();
+      final invalidTemplate = File(p.join(sandbox.path, 'invalid-view.md'))
+        ..writeAsStringSync('{{#entries}}\n{{body}}\n{{/entries}}\n');
+      final out = StringBuffer();
+      final err = StringBuffer();
+
+      final code = await _run(
+        [
+          'render',
+          _selfHostedRegister,
+          '--template',
+          invalidTemplate.path,
+          '--output',
+          output.path,
+        ],
+        out,
+        err,
+      );
+
+      expect(code, 1);
+      expect(err.toString(), startsWith('error: '));
+      expect(out.toString(), isEmpty);
+      expect(existing.readAsBytesSync(), before);
+    });
+
+    test('missing register is a refusal', () async {
+      final output = p.join(sandbox.path, 'views');
+      final out = StringBuffer();
+      final err = StringBuffer();
+
+      final code = await _run(
+        [
+          'render',
+          p.join(sandbox.path, 'nowhere'),
+          '--template',
+          _templateFile,
+          '--output',
+          output,
+        ],
+        out,
+        err,
+      );
+
+      expect(code, 1);
+      expect(err.toString(), contains('no such register directory'));
+      expect(Directory(output).existsSync(), isFalse);
+    });
+
+    test('default output is the register\'s views directory', () async {
+      final register = Directory(p.join(sandbox.path, 'register'))
+        ..createSync();
+      for (final file in Directory(
+        _fixtureRegister,
+      ).listSync().whereType<File>()) {
+        file.copySync(p.join(register.path, p.basename(file.path)));
+      }
+      final out = StringBuffer();
+      final err = StringBuffer();
+
+      final code = await _run(
+        ['render', register.path, '--template', _templateFile],
+        out,
+        err,
+      );
+      final views = renderViews(
+        graph: DecisionGraph(readRegister(register.path)),
+        template: File(_templateFile).readAsStringSync(),
+      );
+
+      expect(code, 0);
+      expect(views, isNotEmpty);
+      expect(
+        _markdownBytes(Directory(p.join(register.path, 'views'))),
+        equals({
+          for (final view in views) view.fileName: utf8.encode(view.content),
+        }),
+      );
+      expect(
+        out.toString(),
+        views
+            .map((view) => '${p.join(register.path, 'views', view.fileName)}\n')
+            .join(),
+      );
+      expect(err.toString(), isEmpty);
+    });
+  });
 }
+
+Future<int> _run(List<String> args, StringBuffer out, StringBuffer err) =>
+    DecisionsCommandRunner(output: out, error: err).run(args);
 
 Map<String, List<int>> _markdownBytes(Directory directory) {
   final files =
