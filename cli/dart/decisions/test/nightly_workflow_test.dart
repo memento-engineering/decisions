@@ -15,6 +15,7 @@ const _releasePath = '../../../.github/workflows/release.yaml';
 const _toolsUses = './.github/actions/gc-sandbox-tools';
 
 const _nightlyPath = '../../../.github/workflows/nightly.yaml';
+const _agentsPath = '../../../AGENTS.md';
 
 /// A parsed YAML or JSON mapping.
 typedef _Json = Map<Object?, Object?>;
@@ -252,6 +253,12 @@ void main() {
       ];
       expect(writers, ['revive_nightly']);
     });
+  });
+
+  test('AGENTS.md tells maintainers about the nightly and its keep-alive', () {
+    final agents = File(_agentsPath).readAsStringSync();
+    expect(agents, contains('nightly.yaml'));
+    expect(agents, contains('revive_nightly'));
   });
 
   group('the nightly workflow', () {

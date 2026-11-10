@@ -72,7 +72,12 @@ dart format --output=none --set-exit-if-changed .   # in each package
 ```
 
 `gc_pack_test.dart` pins the pack's bytes; `gc_pack/e2e.sh` pins what the pack README says gc
-does with them. CI's `gc_pack` job runs it against gc 1.5.1 on ubuntu. To run it locally, point
+does with them. CI's `gc_pack` job runs it against gc 1.5.1 on ubuntu.
+`.github/workflows/nightly.yaml` runs the same steps daily against gc's latest release
+(`gc-version: latest` on `gc-sandbox-tools`, checked only against that release's checksums file).
+A red nightly is a red scheduled run: it blocks nothing and files no issue. `ci.yaml`'s
+`revive_nightly` job re-enables the schedule on every push to `main`, because GitHub disables it
+after 60 idle days. To run `gc_pack/e2e.sh` locally, point
 it at the binaries (each defaults to `PATH`) from the repo root:
 
 ```bash
@@ -86,7 +91,7 @@ committed at `HEAD`, so commit pack edits before running it. Everything runs in 
 your own gc, supervisor or cities. `E2E_ONLY="s2_rig_level s9_cache_wipe"` runs a subset,
 `E2E_VERBOSE=1` prints every scenario's log, and `E2E_KEEP=1` keeps the sandbox.
 If a scenario fails because gc changed, fix the README claim it names in the same change.
-The gc, bd and dolt versions CI runs, with their sha256s, live only in
+The pinned gc, bd and dolt versions CI runs, with their sha256s, live only in
 `.github/actions/gc-sandbox-tools/action.yml`, which both workflows use.
 
 Each release prints the Gas City pin in its notes: `release.yaml` peels the tag to its commit and
