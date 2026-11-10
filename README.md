@@ -32,7 +32,7 @@ by copying `templates/` and writing files.
 | Tier | What you get | Needs |
 |---|---|---|
 | 0 — prose | format, templates, a greppable register, skills as plain markdown | nothing |
-| 1 — CLI | `decisions lint / index / search / new / update / obsolete / vacate / resurface / render`, `prime / guide / skills` for agents, `doctor`; JSON out | the [`decisions` binary](#install-the-cli), or any ecosystem impl |
+| 1 — CLI | `decisions lint / index / search / new / update / obsolete / vacate / resurface / render`, `prime / guide / skills` for agents, `doctor`; readable text out, JSON on request | the [`decisions` binary](#install-the-cli), or any ecosystem impl |
 | 2 — grid | overlay-installed skills, the committee lens, roster-wide cross-repo index and search, decision beads | a station |
 
 The [Gas City pack](#install-in-gas-city) is a way to deliver tier 1 to a Gas City rig's agents,
